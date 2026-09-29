@@ -509,7 +509,7 @@ export function BookStage({
         onPointerUp={onPointerUp}
       >
         {showRear ? (
-          <div className={`closed-book ${phase === "sealing" ? "is-sealing" : phase === "unsealing" ? "is-unsealing" : "is-rear"}`}>
+          <div className={`closed-book is-back ${phase === "sealing" ? "is-sealing" : phase === "unsealing" ? "is-unsealing" : "is-rear"}`}>
             <span className="closed-shadow" aria-hidden="true" />
             <span className="closed-shell">
               <span className="closed-spine" />

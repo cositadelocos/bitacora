@@ -631,24 +631,37 @@
   animation: cover-shut 0.95s cubic-bezier(0.15, 0.75, 0.2, 1) forwards;
 }
 
-.closed-book.is-rear .closed-shell {
-  transform: rotateX(10deg) rotateY(16deg);
+.closed-book.is-rear .closed-shell,
+.closed-book.is-sealing .closed-shell,
+.closed-book.is-unsealing .closed-shell {
+  transform: rotateX(10deg) rotateY(-18deg);
 }
 
-.closed-book.is-sealing .closed-shell {
-  animation: shell-seal 0.95s cubic-bezier(0.16, 0.8, 0.2, 1) forwards;
+.closed-book.is-back .closed-cover {
+  transform-origin: right center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .closed-book.is-sealing .closed-cover {
-  animation: cover-seal 0.95s cubic-bezier(0.15, 0.75, 0.2, 1) forwards;
-}
-
-.closed-book.is-unsealing .closed-shell {
-  animation: shell-unseal 0.9s cubic-bezier(0.16, 0.8, 0.2, 1) forwards;
+  animation: cover-seal 0.9s cubic-bezier(0.16, 0.8, 0.2, 1) forwards;
 }
 
 .closed-book.is-unsealing .closed-cover {
-  animation: cover-unseal 0.9s cubic-bezier(0.15, 0.75, 0.2, 1) forwards;
+  animation: cover-unseal 0.85s cubic-bezier(0.16, 0.8, 0.2, 1) forwards;
+}
+
+.closed-book.is-back .closed-spine {
+  left: auto;
+  right: -12px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(270deg, #1d1b19, #3a342c 70%, #241f1b);
+}
+
+.closed-book.is-back .closed-pages {
+  right: auto;
+  left: -11px;
+  border-radius: 3px 0 0 3px;
 }
 
 @keyframes shell-shut {
@@ -661,24 +674,14 @@
   to { transform: rotateY(0deg); }
 }
 
-@keyframes shell-seal {
-  from { transform: rotateX(0) rotateY(0); }
-  to { transform: rotateX(10deg) rotateY(16deg); }
-}
-
 @keyframes cover-seal {
-  from { transform: rotateY(-162deg); }
+  from { transform: rotateY(70deg); }
   to { transform: rotateY(0deg); }
-}
-
-@keyframes shell-unseal {
-  from { transform: rotateX(10deg) rotateY(16deg); }
-  to { transform: rotateX(0) rotateY(0); }
 }
 
 @keyframes cover-unseal {
   from { transform: rotateY(0deg); }
-  to { transform: rotateY(-162deg); }
+  to { transform: rotateY(70deg); }
 }
 
 .closed-spine,
