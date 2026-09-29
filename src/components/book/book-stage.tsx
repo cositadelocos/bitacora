@@ -209,7 +209,7 @@ export function BookStage({
   useEffect(() => {
     if (!flip) return;
     busy.current = true;
-    const cancel = animateVar("--p", 0, 1, narrow ? 1080 : 820, () => {
+    const cancel = animateVar("--p", 0, 1, narrow ? 740 : 820, () => {
       const step = narrow ? 1 : 2;
       setCursor((c) => {
         const base = narrow ? c : evenCursor(c, total);

@@ -220,7 +220,8 @@
   --pw: calc(var(--ph) / 1.41421356);
   --spread-w: var(--pw);
   width: min(100%, calc(var(--pw) + 28px));
-  perspective: 1500px;
+  perspective: 2600px;
+  perspective-origin: 18% 50%;
 }
 
 .is-present .book-scene.is-spread {
@@ -998,6 +999,11 @@ textarea.page-text {
   width: var(--pw);
   height: var(--ph);
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.single-under,
+.single-static {
   box-shadow: 0 18px 34px rgba(48, 34, 20, 0.24);
 }
 
@@ -1017,29 +1023,44 @@ textarea.page-text {
 .leaf-single {
   width: 100%;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   z-index: 3;
-  will-change: transform;
+  /* Se apaga al final para no quedar de canto: en el teléfono esa línea se ve como un corte. */
+  opacity: clamp(0, calc((0.84 - var(--p)) / 0.16), 1);
 }
 
 .leaf-single.leaf-next {
   left: 0;
   width: 100%;
   transform-origin: left center;
-  transform: rotateY(calc(var(--p) * -180deg));
+  transform: rotateY(calc(var(--p) * -88deg)) translateZ(0);
 }
 
 .leaf-single.leaf-prev {
   left: 0;
   width: 100%;
   transform-origin: left center;
-  transform: rotateY(calc(var(--p) * 180deg));
+  transform: rotateY(calc(var(--p) * 88deg)) translateZ(0);
+}
+
+.leaf-single .face {
+  overflow: visible;
+  background: #f1eed7;
+}
+
+.leaf-single .face-back {
+  visibility: hidden;
+}
+
+.leaf-single .sheet {
+  overflow: hidden;
 }
 
 .leaf-single .leaf-shade {
   background: linear-gradient(
     90deg,
-    rgba(28, 18, 10, calc(var(--shade) * 0.34)),
-    transparent 55%
+    rgba(28, 18, 10, calc(var(--shade) * 0.45)),
+    transparent 70%
   );
 }
 
