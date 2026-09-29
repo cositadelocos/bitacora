@@ -103,7 +103,6 @@
 }
 
 .is-hot .top-bar,
-.is-present .top-bar,
 .top-bar:focus-within {
   opacity: 1;
 }
@@ -225,11 +224,68 @@
 }
 
 .is-present .book-scene.is-spread {
-  --ph: min(86vh, 880px, calc(96vw / 1.41421356));
+  --ph: min(94vh, 980px, calc(96vw / 1.41421356));
 }
 
 .is-present .book-scene.is-single {
-  --ph: min(82vh, calc(92vw * 1.41421356));
+  --ph: min(92vh, calc(94vw * 1.41421356));
+}
+
+.is-present.desk-screen {
+  padding: 0;
+  gap: 0;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.is-present .top-bar,
+.is-present .bottom-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  z-index: 8;
+  width: auto;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.is-present .top-bar { top: 10px; }
+.is-present .bottom-bar { bottom: 10px; }
+
+.is-present.is-hot .top-bar,
+.is-present.is-hot .bottom-bar,
+.is-present .top-bar:focus-within,
+.is-present .bottom-bar:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lens-dock {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 12;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.is-present.is-hot .lens-dock,
+.lens-dock.is-on,
+.lens-dock:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.is-present.is-lens .book-scene {
+  cursor: zoom-in;
+}
+
+.is-present.is-zoomed .book-scene {
+  cursor: grab;
 }
 
 .phase-open,

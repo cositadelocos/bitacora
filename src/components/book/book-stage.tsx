@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Maximize2, Share2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Search, Share2, X } from "lucide-react";
 import type { LogbookDoc, LogPage } from "@/lib/logbook/model";
 import { backIndex, elementStyle, evenCursor, maxCursor, pad2, pageAssetIds, viewCount } from "@/lib/logbook/model";
 import type { AssetMode } from "@/lib/logbook/assets";
@@ -128,6 +128,10 @@ export function BookStage({
   const [flip, setFlip] = useState<Flip>(null);
   const [hot, setHot] = useState(true);
   const [present, setPresent] = useState(false);
+  const [lens, setLens] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panDrag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [autoplay, setAutoplay] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const swipe = useRef({ x: 0, y: 0, moved: false });
@@ -235,8 +239,10 @@ export function BookStage({
     };
     poke();
     window.addEventListener("pointermove", poke);
+    window.addEventListener("pointerdown", poke);
     return () => {
       window.removeEventListener("pointermove", poke);
+      window.removeEventListener("pointerdown", poke);
       window.clearTimeout(timer);
     };
   }, []);
@@ -285,6 +291,12 @@ export function BookStage({
           setShareOpen(false);
           return;
         }
+        if (lens || scale !== 1) {
+          setLens(false);
+          setScale(1);
+          setPan({ x: 0, y: 0 });
+          return;
+        }
         if (present) {
           setPresent(false);
           setAutoplay(false);
@@ -305,7 +317,42 @@ export function BookStage({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go, phase, present, shareOpen]);
+  }, [go, phase, present, shareOpen, lens, scale]);
+
+  function leavePresent() {
+    setPresent(false);
+    setAutoplay(false);
+    setLens(false);
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }
+
+  function toggleLens() {
+    if (lens) {
+      setLens(false);
+      setScale(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    setLens(true);
+    setScale(1.8);
+  }
+
+  useEffect(() => {
+    const node = sceneRef.current;
+    if (!node || !present || !lens) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setScale((current) => {
+        const next = Math.min(3, Math.max(1, current + (event.deltaY < 0 ? 0.16 : -0.16)));
+        if (next === 1) setPan({ x: 0, y: 0 });
+        return next;
+      });
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [present, lens]);
 
   function openPresent() {
     setPresent(true);
@@ -359,9 +406,22 @@ export function BookStage({
   })();
 
   function onPointerDown(event: React.PointerEvent) {
+    if (present && lens) {
+      panDrag.current = { x: event.clientX, y: event.clientY, px: pan.x, py: pan.y };
+      return;
+    }
     swipe.current = { x: event.clientX, y: event.clientY, moved: false };
   }
+  function onPointerMove(event: React.PointerEvent) {
+    const drag = panDrag.current;
+    if (!drag) return;
+    setPan({ x: drag.px + event.clientX - drag.x, y: drag.py + event.clientY - drag.y });
+  }
   function onPointerUp(event: React.PointerEvent) {
+    if (panDrag.current) {
+      panDrag.current = null;
+      return;
+    }
     const dx = event.clientX - swipe.current.x;
     const dy = event.clientY - swipe.current.y;
     if (Math.abs(dx) > 52 && Math.abs(dx) > Math.abs(dy) * 1.2) {
@@ -376,7 +436,7 @@ export function BookStage({
   return (
     <div
       ref={rootRef}
-      className={`desk-screen desk-${doc.desk ?? "yeso"} ${hot || present ? "is-hot" : ""} ${present ? "is-present" : ""}`}
+      className={`desk-screen desk-${doc.desk ?? "yeso"} ${hot ? "is-hot" : ""} ${present ? "is-present" : ""} ${lens ? "is-lens" : ""} ${scale > 1 ? "is-zoomed" : ""}`}
     >
       <div className={`quiet-bar top-bar ${present ? "present-bar" : ""}`}>
         {previewing ? (
@@ -395,15 +455,7 @@ export function BookStage({
               <button type="button" className="quiet-btn" onClick={() => setAutoplay((v) => !v)}>
                 {autoplay ? "Pausa" : "Reproducir"}
               </button>
-              <button
-                type="button"
-                className="quiet-btn"
-                onClick={() => {
-                  setPresent(false);
-                  setAutoplay(false);
-                  if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-                }}
-              >
+              <button type="button" className="quiet-btn" onClick={leavePresent}>
                 Salir
               </button>
             </>
@@ -430,7 +482,13 @@ export function BookStage({
       <div
         ref={sceneRef}
         className={`book-scene ${narrow ? "is-single" : "is-spread"} phase-${phase} ${flip ? "is-flipping" : ""}`}
+        style={
+          present && (scale !== 1 || pan.x !== 0 || pan.y !== 0)
+            ? { transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }
+            : undefined
+        }
         onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
         {narrow ? (
@@ -524,7 +582,7 @@ export function BookStage({
           </div>
         )}
 
-        {phase === "open" ? (
+        {phase === "open" && !(present && lens) ? (
           <>
             <button
               type="button"
@@ -559,6 +617,39 @@ export function BookStage({
           </>
         ) : null}
       </div>
+
+      {present ? (
+        <div className={`lens-dock ${lens ? "is-on" : ""}`}>
+          <button type="button" className={`quiet-btn ${lens ? "is-on" : ""}`} onClick={toggleLens}>
+            <Search size={15} strokeWidth={1.75} />
+            Lupa
+          </button>
+          {lens ? (
+            <>
+              <button
+                type="button"
+                className="quiet-btn"
+                onClick={() => setScale((current) => Math.min(3, Math.round((current + 0.4) * 10) / 10))}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="quiet-btn"
+                onClick={() =>
+                  setScale((current) => {
+                    const next = Math.max(1, Math.round((current - 0.4) * 10) / 10);
+                    if (next === 1) setPan({ x: 0, y: 0 });
+                    return next;
+                  })
+                }
+              >
+                −
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="quiet-bar bottom-bar">
         {phase === "open" ? (
