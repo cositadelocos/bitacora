@@ -61,7 +61,9 @@ export function EditorApp() {
   const [past, setPast] = useState<LogbookDoc[]>([]);
   const [future, setFuture] = useState<LogbookDoc[]>([]);
   const [pageId, setPageId] = useState<string>("cover");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const clip = useRef<LogElement[]>([]);
+  const [clipCount, setClipCount] = useState(0);
   const [status, setStatus] = useState("Cargando cuaderno…");
   const [dirty, setDirty] = useState(false);
   const [ready, setReady] = useState(false);
@@ -208,21 +210,21 @@ export function EditorApp() {
         else undo();
       }
       if (typing) return;
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedId && pageId !== "cover" && pageId !== "back") {
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedIds.length && pageId !== "cover" && pageId !== "back") {
         event.preventDefault();
-        commit(
-          (current) =>
-            patchPage(current, pageId, (item) => ({
-              ...item,
-              elements: item.elements.filter((el) => el.id !== selectedId),
-            })),
-          true,
-        );
-        setSelectedId(null);
+        deleteSelected();
       }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d" && selectedId) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d" && selectedIds.length) {
         event.preventDefault();
         duplicateSelected();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c" && selectedIds.length) {
+        event.preventDefault();
+        copySelected();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "v") {
+        event.preventDefault();
+        pasteClipboard();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -234,7 +236,7 @@ export function EditorApp() {
     const target = doc.pages.find((item) => item.id === pageId);
     const z = (target?.elements.reduce((max, el) => Math.max(max, el.z), 0) ?? 0) + 1;
     const element = make(z);
-    setSelectedId(element.id);
+    setSelectedIds([element.id]);
     commit(
       (current) =>
         patchPage(current, pageId, (item) => ({ ...item, elements: [...item.elements, element] })),
@@ -242,24 +244,83 @@ export function EditorApp() {
     );
   }
 
+  function chosen() {
+    const ids = new Set(selectedIds);
+    return page?.elements.filter((el) => ids.has(el.id)) ?? [];
+  }
+
+  function copySelected() {
+    const items = chosen();
+    if (!items.length) return;
+    clip.current = items.map((el) => ({ ...el, look: el.look ? { ...el.look } : undefined }));
+    setClipCount(items.length);
+    setStatus(items.length === 1 ? "1 objeto copiado" : `${items.length} objetos copiados`);
+  }
+
+  function pasteClipboard() {
+    if (!doc || pageId === "cover" || pageId === "back" || !clip.current.length) return;
+    const base = page?.elements.reduce((max, el) => Math.max(max, el.z), 0) ?? 0;
+    const copies = clip.current.map((source, index) => ({
+      ...source,
+      id: cryptoId(),
+      x: source.x + 6,
+      y: source.y + 6,
+      z: base + index + 1,
+      look: source.look ? { ...source.look } : undefined,
+    }));
+    commit(
+      (current) =>
+        patchPage(current, pageId, (item) => ({ ...item, elements: [...item.elements, ...copies] })),
+      true,
+    );
+    setSelectedIds(copies.map((el) => el.id));
+    setStatus(copies.length === 1 ? "Pegado en esta página" : `${copies.length} objetos pegados`);
+  }
+
   function duplicateSelected() {
-    if (!doc || !selectedId || pageId === "cover" || pageId === "back") return;
-    const source = page?.elements.find((el) => el.id === selectedId);
-    if (!source) return;
-    const copy: LogElement = {
+    if (!doc || !selectedIds.length || pageId === "cover" || pageId === "back") return;
+    const sources = chosen();
+    if (!sources.length) return;
+    const base = sources.reduce((max, el) => Math.max(max, el.z), 0);
+    const copies = sources.map((source, index) => ({
       ...source,
       id: cryptoId(),
       x: source.x + 4,
       y: source.y + 4,
-      z: source.z + 1,
+      z: base + index + 1,
       look: source.look ? { ...source.look } : undefined,
-    };
+    }));
     commit(
       (current) =>
-        patchPage(current, pageId, (item) => ({ ...item, elements: [...item.elements, copy] })),
+        patchPage(current, pageId, (item) => ({ ...item, elements: [...item.elements, ...copies] })),
       true,
     );
-    setSelectedId(copy.id);
+    setSelectedIds(copies.map((el) => el.id));
+  }
+
+  function deleteSelected() {
+    if (!selectedIds.length || pageId === "cover" || pageId === "back") return;
+    const drop = new Set(selectedIds);
+    commit(
+      (current) =>
+        patchPage(current, pageId, (item) => ({
+          ...item,
+          elements: item.elements.filter((el) => !drop.has(el.id)),
+        })),
+      true,
+    );
+    setSelectedIds([]);
+  }
+
+  function selectElement(id: string | null, toggle = false) {
+    if (!id) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds((prev) => {
+      if (!toggle) return [id];
+      return prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+    });
   }
 
   async function ingest(files: File[], target: "page" | "cover") {
@@ -329,7 +390,7 @@ export function EditorApp() {
     if (!made.length || pageId === "cover") return;
     const base = page?.elements.reduce((max, el) => Math.max(max, el.z), 0) ?? 0;
     const elements = made.map((el, index) => ({ ...el, z: base + index + 1 }));
-    setSelectedId(elements[elements.length - 1]?.id ?? null);
+    setSelectedIds(elements.length ? [elements[elements.length - 1].id] : []);
     commit(
       (current) =>
         patchPage(current, pageId, (item) => ({ ...item, elements: [...item.elements, ...elements] })),
@@ -384,7 +445,7 @@ export function EditorApp() {
     );
   }
 
-  const selected = page?.elements.find((el) => el.id === selectedId) ?? null;
+  const selected = selectedIds.length === 1 ? (page?.elements.find((el) => el.id === selectedIds[0]) ?? null) : null;
   const coverUrl = doc.cover.assetId ? assets[doc.cover.assetId] : undefined;
 
   return (
@@ -445,7 +506,7 @@ export function EditorApp() {
               return { ...current, pages };
             }, true);
             setPageId(created.id);
-            setSelectedId(null);
+            setSelectedIds([]);
           }}
         >
           + Nueva página
@@ -455,7 +516,7 @@ export function EditorApp() {
           className={`page-slip ${pageId === "cover" ? "is-on" : ""}`}
           onClick={() => {
             setPageId("cover");
-            setSelectedId(null);
+            setSelectedIds([]);
           }}
         >
           <span className={`slip-paper cloth-${doc.cover.cloth}`} />
@@ -469,7 +530,7 @@ export function EditorApp() {
               className={`page-slip ${item.id === pageId ? "is-on" : ""}`}
               onClick={() => {
                 setPageId(item.id);
-                setSelectedId(null);
+                setSelectedIds([]);
               }}
             >
               <span className={`slip-paper tone-${item.tone}`} />
@@ -485,7 +546,7 @@ export function EditorApp() {
           className={`page-slip ${pageId === "back" ? "is-on" : ""}`}
           onClick={() => {
             setPageId("back");
-            setSelectedId(null);
+            setSelectedIds([]);
           }}
         >
           <span className={`slip-paper cloth-${doc.back?.cloth === "same" || !doc.back ? doc.cover.cloth : doc.back.cloth}`} />
@@ -524,8 +585,8 @@ export function EditorApp() {
           <PageCanvas
             page={page}
             assets={assets}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+            selectedIds={selectedIds}
+            onSelect={selectElement}
             dropHot={dropHot}
             onDragState={setDropHot}
             onGestureStart={() => {
@@ -538,6 +599,17 @@ export function EditorApp() {
                   patchPage(current, pageId, (item) => ({
                     ...item,
                     elements: item.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
+                  })),
+                false,
+              );
+            }}
+            onPatchGroup={(patches) => {
+              const byId = new Map(patches.map((patch) => [patch.id, patch.partial]));
+              commit(
+                (current) =>
+                  patchPage(current, pageId, (item) => ({
+                    ...item,
+                    elements: item.elements.map((el) => (byId.has(el.id) ? { ...el, ...byId.get(el.id) } : el)),
                   })),
                 false,
               );
@@ -727,7 +799,7 @@ export function EditorApp() {
                       const index = doc.pages.findIndex((item) => item.id === page.id);
                       const neighbor = doc.pages[index - 1] ?? doc.pages[index + 1];
                       setPageId(neighbor?.id ?? "cover");
-                      setSelectedId(null);
+                      setSelectedIds([]);
                     }}
                   >
                     Eliminar
@@ -736,8 +808,31 @@ export function EditorApp() {
               </section>
             ) : null}
             <section>
-              <h2>Elemento</h2>
-              {selected ? (
+              <h2>{selectedIds.length > 1 ? `${selectedIds.length} objetos` : "Elemento"}</h2>
+              <div className="tool-grid">
+                <button type="button" className="quiet-btn" disabled={!selectedIds.length} onClick={copySelected}>
+                  Copiar
+                </button>
+                <button
+                  type="button"
+                  className="quiet-btn"
+                  disabled={!clipCount || pageId === "cover" || pageId === "back"}
+                  onClick={pasteClipboard}
+                >
+                  Pegar{clipCount ? ` (${clipCount})` : ""}
+                </button>
+              </div>
+              <p className="tool-label">Mayús+clic suma. Copia y pega en otra página.</p>
+              {selectedIds.length > 1 ? (
+                <div className="tool-grid">
+                  <button type="button" className="quiet-btn" onClick={duplicateSelected}>
+                    Duplicar aquí
+                  </button>
+                  <button type="button" className="quiet-btn danger" onClick={deleteSelected}>
+                    Eliminar
+                  </button>
+                </div>
+              ) : selected ? (
                 <ElementFields
                   el={selected}
                   onChange={(partial, record) =>
@@ -770,11 +865,13 @@ export function EditorApp() {
                         })),
                       true,
                     );
-                    setSelectedId(null);
+                    setSelectedIds([]);
                   }}
                 />
               ) : (
-                <p className="dialog-copy">Selecciona algo en la página, o suelta varias imágenes a la vez.</p>
+                <p className="dialog-copy">
+                  Selecciona uno, o varios con Mayús+clic, para moverlos juntos. Copiar y Pegar sirven en otra página.
+                </p>
               )}
             </section>
           </>

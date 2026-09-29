@@ -7,9 +7,14 @@ import { ElementBody } from "@/components/book/element-body";
 import { CoverFace } from "@/components/book/cover-face";
 
 type Drag =
-  | { kind: "move"; id: string; dx: number; dy: number }
+  | { kind: "move"; ids: string[]; origins: Record<string, { x: number; y: number }>; start: { x: number; y: number } }
   | { kind: "resize"; id: string }
   | { kind: "rotate"; id: string; offset: number };
+
+type CoverDrag =
+  | { kind: "move"; dx: number; dy: number }
+  | { kind: "resize" }
+  | { kind: "rotate"; offset: number };
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -18,9 +23,10 @@ function clamp(n: number, min: number, max: number) {
 export function PageCanvas({
   page,
   assets,
-  selectedId,
+  selectedIds,
   onSelect,
   onPatch,
+  onPatchGroup,
   onGestureStart,
   onDropFiles,
   dropHot,
@@ -28,9 +34,10 @@ export function PageCanvas({
 }: {
   page: LogPage;
   assets: Record<string, string>;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  selectedIds: string[];
+  onSelect: (id: string | null, toggle?: boolean) => void;
   onPatch: (id: string, partial: Partial<LogElement>) => void;
+  onPatchGroup: (patches: { id: string; partial: Partial<LogElement> }[]) => void;
   onGestureStart: () => void;
   onDropFiles: (files: File[]) => void;
   dropHot: boolean;
@@ -59,16 +66,26 @@ export function PageCanvas({
       const current = drag.current;
       if (!current || !pageRef.current) return;
       const point = units(event);
-      const el = page.elements.find((item) => item.id === current.id);
-      if (!el) return;
       begin();
       if (current.kind === "move") {
-        onPatch(el.id, {
-          x: clamp(point.x - current.dx, -15, 115),
-          y: clamp(point.y - current.dy, -15, 165),
-        });
+        const dx = point.x - current.start.x;
+        const dy = point.y - current.start.y;
+        onPatchGroup(
+          current.ids.map((id) => {
+            const origin = current.origins[id];
+            return {
+              id,
+              partial: {
+                x: clamp((origin?.x ?? 0) + dx, -15, 115),
+                y: clamp((origin?.y ?? 0) + dy, -15, 165),
+              },
+            };
+          }),
+        );
         return;
       }
+      const el = page.elements.find((item) => item.id === current.id);
+      if (!el) return;
       if (current.kind === "rotate") {
         const angle = (Math.atan2(point.y - el.y, point.x - el.x) * 180) / Math.PI;
         onPatch(el.id, { rotation: Math.round((angle - current.offset) * 10) / 10 });
@@ -96,13 +113,24 @@ export function PageCanvas({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-  }, [page.elements, onPatch, onGestureStart]);
+  }, [page.elements, onPatch, onPatchGroup, onGestureStart]);
 
   function startMove(event: ReactPointerEvent, el: LogElement) {
     event.stopPropagation();
-    onSelect(el.id);
+    const toggle = event.shiftKey || event.metaKey || event.ctrlKey;
+    if (toggle) {
+      onSelect(el.id, true);
+      return;
+    }
+    const group = selectedIds.includes(el.id) && selectedIds.length > 1 ? selectedIds : [el.id];
+    if (group.length === 1) onSelect(el.id, false);
     const point = units(event);
-    drag.current = { kind: "move", id: el.id, dx: point.x - el.x, dy: point.y - el.y };
+    const origins: Record<string, { x: number; y: number }> = {};
+    for (const id of group) {
+      const item = page.elements.find((entry) => entry.id === id);
+      if (item) origins[id] = { x: item.x, y: item.y };
+    }
+    drag.current = { kind: "move", ids: group, origins, start: point };
   }
 
   const ordered = page.elements.slice().sort((a, b) => a.z - b.z);
@@ -135,7 +163,8 @@ export function PageCanvas({
     >
       <Sheet tone={page.tone} seed={page.id}>
         {ordered.map((el) => {
-          const selected = el.id === selectedId;
+          const selected = selectedIds.includes(el.id);
+          const alone = selected && selectedIds.length === 1;
           return (
             <div
               key={el.id}
@@ -143,14 +172,21 @@ export function PageCanvas({
               style={elementStyle(el)}
               onPointerDown={(event) => {
                 if ((event.target as HTMLElement).closest("textarea, button")) return;
-                if (el.type === "text") {
-                  onSelect(el.id);
+                const toggle = event.shiftKey || event.metaKey || event.ctrlKey;
+                if (toggle) {
+                  event.stopPropagation();
+                  onSelect(el.id, true);
+                  return;
+                }
+                const inGroup = selectedIds.includes(el.id) && selectedIds.length > 1;
+                if (el.type === "text" && !inGroup) {
+                  onSelect(el.id, false);
                   return;
                 }
                 startMove(event, el);
               }}
             >
-              {el.type === "text" && selected ? (
+              {el.type === "text" && alone ? (
                 <textarea
                   className={`page-text align-${el.align ?? "left"} ${el.bold ? "is-bold" : ""}`}
                   style={{
@@ -174,9 +210,9 @@ export function PageCanvas({
               ) : (
                 <ElementBody el={el} url={el.assetId ? assets[el.assetId] : undefined} pending />
               )}
-              {selected ? (
+              {selected ? <span className="sel-frame" /> : null}
+              {alone ? (
                 <>
-                  <span className="sel-frame" />
                   <button
                     type="button"
                     className="grip"
@@ -232,7 +268,7 @@ export function CoverCanvas({
   onDragState: (hot: boolean) => void;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<Drag | null>(null);
+  const drag = useRef<CoverDrag | null>(null);
   const recording = useRef(false);
   const [selected, setSelected] = useState(Boolean(imageUrl));
 
@@ -327,7 +363,7 @@ export function CoverCanvas({
             event.stopPropagation();
             setSelected(true);
             const point = units(event);
-            drag.current = { kind: "move", id: "cover", dx: point.x - cover.imgX, dy: point.y - cover.imgY };
+            drag.current = { kind: "move", dx: point.x - cover.imgX, dy: point.y - cover.imgY };
           }}
         >
           {selected ? (
@@ -340,7 +376,7 @@ export function CoverCanvas({
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   const point = units(event);
-                  drag.current = { kind: "move", id: "cover", dx: point.x - cover.imgX, dy: point.y - cover.imgY };
+                  drag.current = { kind: "move", dx: point.x - cover.imgX, dy: point.y - cover.imgY };
                 }}
               />
               <button
@@ -351,7 +387,7 @@ export function CoverCanvas({
                   event.stopPropagation();
                   const point = units(event);
                   const angle = (Math.atan2(point.y - cover.imgY, point.x - cover.imgX) * 180) / Math.PI;
-                  drag.current = { kind: "rotate", id: "cover", offset: angle - cover.imgRot };
+                  drag.current = { kind: "rotate", offset: angle - cover.imgRot };
                 }}
               />
               <button
@@ -360,7 +396,7 @@ export function CoverCanvas({
                 aria-label="Escalar ilustración"
                 onPointerDown={(event) => {
                   event.stopPropagation();
-                  drag.current = { kind: "resize", id: "cover" };
+                  drag.current = { kind: "resize" };
                 }}
               />
             </>
