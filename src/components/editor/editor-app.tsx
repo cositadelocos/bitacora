@@ -5,6 +5,8 @@ import { UserButton } from "@/lib/auth/gates";
 import { getDraft, publishBook, saveDraft, uploadAsset } from "@/lib/logbook/api";
 import { compressImage, loadAssets, rememberAsset } from "@/lib/logbook/assets";
 import {
+  BANDS,
+  BAND_LABEL,
   CLOTHS,
   CLOTH_LABEL,
   DECO_LABEL,
@@ -679,7 +681,7 @@ export function EditorApp() {
           />
         ) : pageId === "back" ? (
           <BackFields
-            back={doc.back ?? { note: "", cloth: "same", assetId: null, imageFit: "plate", imgX: 50, imgY: 46, imgW: 68, imgH: 78, imgRot: -1.2 }}
+            back={doc.back ?? { note: "", cloth: "same", assetId: null, imageFit: "plate", imgX: 50, imgY: 46, imgW: 68, imgH: 78, imgRot: -1.2, textX: null, textY: null, textInk: null, textScale: 1 }}
             onChange={(partial) =>
               commit(
                 (current) => ({
@@ -1166,6 +1168,37 @@ function BackFields({
           Completa
         </button>
       </div>
+      <p className="dialog-copy">Arrastra la nota sobre la contraportada para moverla.</p>
+      <label className="field">
+        <span>Tamaño de la nota {(back.textScale ?? 1).toFixed(2)}</span>
+        <input
+          type="range"
+          min={0.5}
+          max={2}
+          step={0.05}
+          value={back.textScale ?? 1}
+          onChange={(event) => onChange({ textScale: Number(event.target.value) })}
+        />
+      </label>
+      <p className="tool-label">Color de la nota</p>
+      <div className="swatches">
+        <button
+          type="button"
+          className={`swatch ${back.textInk == null ? "is-on" : ""}`}
+          title="De la tela"
+          style={{ background: "linear-gradient(135deg, #f3efe4 50%, #2c2926 50%)" }}
+          onClick={() => onChange({ textInk: null })}
+        />
+        {INKS.map((ink) => (
+          <button
+            key={ink}
+            type="button"
+            title={INK_LABEL[ink]}
+            className={`swatch swatch-${ink} ${back.textInk === ink ? "is-on" : ""}`}
+            onClick={() => onChange({ textInk: ink })}
+          />
+        ))}
+      </div>
       <p className="tool-label">Tela</p>
       <div className="choice-row">
         <button
@@ -1259,6 +1292,30 @@ function CoverFields({
         ))}
       </div>
       <p className="dialog-copy">Arrastra el título en la portada para moverlo. La ilustración se mueve, escala y rota aparte.</p>
+      <label className="field">
+        <span>Tamaño del título {(cover.textScale ?? 1).toFixed(2)}</span>
+        <input
+          type="range"
+          min={0.5}
+          max={1.7}
+          step={0.05}
+          value={cover.textScale ?? 1}
+          onChange={(event) => onChange({ textScale: Number(event.target.value) })}
+        />
+      </label>
+      <p className="tool-label">Detalle</p>
+      <div className="choice-row">
+        {BANDS.map((band) => (
+          <button
+            key={band}
+            type="button"
+            className={`tone-btn ${(cover.band ?? "cord") === band ? "is-on" : ""}`}
+            onClick={() => onChange({ band })}
+          >
+            {BAND_LABEL[band]}
+          </button>
+        ))}
+      </div>
       <div className="tool-grid">
         <button
           type="button"

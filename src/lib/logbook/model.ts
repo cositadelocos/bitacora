@@ -8,6 +8,14 @@ export type InkName = (typeof INKS)[number];
 
 export const CLOTHS = ["olive", "ink", "brick", "kraft", "navy", "wine", "forest", "sand", "night", "clay"] as const;
 export type Cloth = (typeof CLOTHS)[number];
+export const BANDS = ["cord", "ribbon", "stitch", "plain"] as const;
+export type Band = (typeof BANDS)[number];
+export const BAND_LABEL: Record<Band, string> = {
+  cord: "Cordón",
+  ribbon: "Cinta",
+  stitch: "Costura",
+  plain: "Lisa",
+};
 export const CLOTH_LABEL: Record<Cloth, string> = {
   olive: "Oliva",
   ink: "Tinta",
@@ -227,6 +235,8 @@ export type Cover = {
   textX: number | null;
   textY: number | null;
   textInk: InkName | null;
+  textScale: number;
+  band: Band;
 };
 
 export type BackCover = {
@@ -239,6 +249,10 @@ export type BackCover = {
   imgW: number;
   imgH: number;
   imgRot: number;
+  textX: number | null;
+  textY: number | null;
+  textInk: InkName | null;
+  textScale: number;
 };
 
 export type LogbookDoc = {
@@ -393,6 +407,8 @@ export function parseDoc(input: unknown): LogbookDoc {
     textX: coverRaw.textX == null ? null : num(coverRaw.textX, 8, -20, 90),
     textY: coverRaw.textY == null ? null : num(coverRaw.textY, 80, -20, 180),
     textInk: INK_SET.has(String(coverRaw.textInk)) ? (coverRaw.textInk as InkName) : null,
+    textScale: coverRaw.textScale == null ? 1 : num(coverRaw.textScale, 1, 0.45, 1.8),
+    band: BANDS.includes(coverRaw.band as Band) ? (coverRaw.band as Band) : "cord",
   };
   const backCloth = String(backRaw.cloth ?? "same");
   const backFit = backRaw.imageFit === "full" ? "full" : "plate";
@@ -407,6 +423,10 @@ export function parseDoc(input: unknown): LogbookDoc {
     imgW: backRaw.imgW == null ? backPlaced.imgW : num(backRaw.imgW, backPlaced.imgW, 8, 170),
     imgH: backRaw.imgH == null ? backPlaced.imgH : num(backRaw.imgH, backPlaced.imgH, 8, 220),
     imgRot: backRaw.imgRot == null ? backPlaced.imgRot : num(backRaw.imgRot, backPlaced.imgRot, -180, 180),
+    textX: backRaw.textX == null ? null : num(backRaw.textX, 16, -20, 80),
+    textY: backRaw.textY == null ? null : num(backRaw.textY, 40, -20, 160),
+    textInk: INK_SET.has(String(backRaw.textInk)) ? (backRaw.textInk as InkName) : null,
+    textScale: backRaw.textScale == null ? 1 : num(backRaw.textScale, 1, 0.45, 2.2),
   };
   const pages: LogPage[] = [];
   for (const page of pagesRaw.slice(0, 240)) {
@@ -543,9 +563,20 @@ export function seedDoc(): LogbookDoc {
       textX: null,
       textY: null,
       textInk: null,
+      textScale: 1,
+      band: "cord",
       ...coverPlacement("plate"),
     },
-    back: { note: "", cloth: "same", assetId: null, ...coverPlacement("plate") },
+    back: {
+      note: "",
+      cloth: "same",
+      assetId: null,
+      textX: null,
+      textY: null,
+      textInk: null,
+      textScale: 1,
+      ...coverPlacement("plate"),
+    },
     desk: "yeso",
     pages: [
       {

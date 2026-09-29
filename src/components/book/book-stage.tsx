@@ -223,7 +223,7 @@ export function BookStage({
   useEffect(() => {
     if (!flip) return;
     busy.current = true;
-    const cancel = animateVar("--p", 0, 1, narrow ? 740 : 820, () => {
+    const cancel = animateVar("--p", 0, 1, narrow ? 880 : 820, () => {
       const step = narrow ? 1 : 2;
       setCursor((c) => {
         const base = narrow ? c : evenCursor(c, total);
@@ -544,7 +544,7 @@ export function BookStage({
               <span className="open-hint">Abrir cuaderno</span>
             </button>
           ) : (
-            <div className={`single-book ${flip ? "is-turning" : ""}`}>
+            <div className={`single-book ${flip ? `is-turning is-${flip.dir}` : ""}`}>
               <div className="single-hold">
                 <SlotSheet index={flip ? flip.from : cursor} doc={doc} assets={assets} single />
               </div>

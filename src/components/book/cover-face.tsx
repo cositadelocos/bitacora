@@ -25,10 +25,12 @@ export function coverImageStyle(cover: {
 
 export function CoverFace({ cover, imageUrl }: { cover: Cover; imageUrl?: string }) {
   const placed = cover.textX != null && cover.textY != null;
+  const band = cover.band ?? "cord";
   const text = cover.showText ? (
     <div
       className={`cover-type ${imageUrl ? "has-image" : "no-image"} ${placed ? "is-placed" : ""}`}
       style={{
+        ["--ts" as string]: cover.textScale ?? 1,
         color: cover.textInk ? inkVar(cover.textInk) : undefined,
         ...(placed
           ? {
@@ -36,7 +38,7 @@ export function CoverFace({ cover, imageUrl }: { cover: Cover; imageUrl?: string
               top: `${(cover.textY ?? 0) / RATIO}%`,
               right: "auto",
               bottom: "auto",
-              width: "78%",
+              width: band === "plain" ? "82%" : "72%",
             }
           : null),
       }}
@@ -52,7 +54,7 @@ export function CoverFace({ cover, imageUrl }: { cover: Cover; imageUrl?: string
   ) : null;
 
   return (
-    <div className={`cover-board cloth-${cover.cloth}`}>
+    <div className={`cover-board cloth-${cover.cloth} ${band === "plain" ? "" : "has-band"}`}>
       <div className="cover-weave" aria-hidden="true" />
       {imageUrl ? (
         <img
@@ -64,7 +66,7 @@ export function CoverFace({ cover, imageUrl }: { cover: Cover; imageUrl?: string
         />
       ) : null}
       {text}
-      <span className="elastic" aria-hidden="true" />
+      {band !== "plain" ? <span className={`band band-${band}`} aria-hidden="true" /> : null}
       <span className="cover-spine-shade" aria-hidden="true" />
     </div>
   );
@@ -73,14 +75,34 @@ export function CoverFace({ cover, imageUrl }: { cover: Cover; imageUrl?: string
 export function BackFace({ cover, back, imageUrl }: { cover: Cover; back?: BackCover; imageUrl?: string }) {
   const cloth = !back || back.cloth === "same" ? cover.cloth : back.cloth;
   const note = back?.note?.trim() ?? "";
+  const band = cover.band ?? "cord";
+  const placed = back?.textX != null && back?.textY != null;
   return (
-    <div className={`cover-board cloth-${cloth} is-back`}>
+    <div className={`cover-board cloth-${cloth} is-back ${band === "plain" ? "" : "has-band"}`}>
       <div className="cover-weave" aria-hidden="true" />
       {imageUrl && back ? (
         <img className="cover-art is-plate" src={imageUrl} alt="" draggable={false} style={coverImageStyle(back)} />
       ) : null}
-      {note ? <p className="back-note">{note}</p> : null}
-      <span className="elastic" aria-hidden="true" />
+      {note ? (
+        <p
+          className={`back-note ${placed ? "is-placed" : ""}`}
+          style={{
+            ["--ts" as string]: back?.textScale ?? 1,
+            color: back?.textInk ? inkVar(back.textInk) : undefined,
+            ...(placed
+              ? {
+                  left: `${back?.textX}%`,
+                  top: `${(back?.textY ?? 0) / RATIO}%`,
+                  right: "auto",
+                  width: "68%",
+                }
+              : null),
+          }}
+        >
+          {note}
+        </p>
+      ) : null}
+      {band !== "plain" ? <span className={`band band-${band}`} aria-hidden="true" /> : null}
       <span className="cover-spine-shade" aria-hidden="true" />
     </div>
   );

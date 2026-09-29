@@ -512,9 +512,16 @@ export function BackCanvas({
   useEffect(() => {
     const move = (event: PointerEvent) => {
       const current = drag.current;
-      if (!current || current.kind === "text") return;
+      if (!current) return;
       const point = units(event);
       begin();
+      if (current.kind === "text") {
+        onChange({
+          textX: clamp(point.x - current.dx, -10, 70),
+          textY: clamp(point.y - current.dy, -10, 150),
+        });
+        return;
+      }
       if (current.kind === "move") {
         onChange({
           imgX: clamp(point.x - current.dx, -20, 120),
@@ -625,6 +632,27 @@ export function BackCanvas({
             </>
           ) : null}
         </div>
+      ) : null}
+      {back.note.trim() ? (
+        <div
+          className={`cover-text-hit ${back.textX != null && back.textY != null ? "is-placed" : "is-top"}`}
+          style={
+            back.textX != null && back.textY != null
+              ? { left: `${back.textX}%`, top: `${back.textY / RATIO}%`, width: "68%", height: "22%" }
+              : { left: "16%", right: "14%", top: "22%", bottom: "auto", height: "28%" }
+          }
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            setSelected(false);
+            const page = pageRef.current!.getBoundingClientRect();
+            const box = event.currentTarget.getBoundingClientRect();
+            const originX = ((box.left - page.left) / page.width) * 100;
+            const originY = ((box.top - page.top) / page.width) * 100;
+            const point = units(event);
+            drag.current = { kind: "text", dx: point.x - originX, dy: point.y - originY };
+            if (back.textX == null || back.textY == null) onChange({ textX: originX, textY: originY });
+          }}
+        />
       ) : null}
       {dropHot ? <p className="drop-label">Soltar en la contraportada</p> : null}
     </div>
