@@ -203,6 +203,7 @@
 .book-scene {
   --cover: 0;
   --p: 0;
+  --shade: 0;
   --gutter: 0px;
   --ph: min(72vh, 760px, calc(94vw / 1.41421356));
   --pw: calc(var(--ph) / 1.41421356);
@@ -289,13 +290,12 @@
 }
 
 .phase-open .wing-left .curl {
-  /* 1px de solape para que el escritorio no se asome en la costura. */
-  transform: translateX(1px) rotateY(4deg);
+  transform: rotateY(4deg);
   transform-origin: right center;
 }
 
 .phase-open .wing-right .curl {
-  transform: translateX(-1px) rotateY(-4deg);
+  transform: rotateY(-4deg);
   transform-origin: left center;
 }
 
@@ -398,9 +398,9 @@
   pointer-events: none;
   background: linear-gradient(
     90deg,
-    rgba(40, 28, 16, calc(0.05 + var(--p) * 0.2)),
-    rgba(40, 28, 16, calc(var(--p) * 0.08)) 16%,
-    transparent 38%
+    rgba(40, 28, 16, calc(var(--shade) * 0.28)),
+    rgba(40, 28, 16, calc(var(--shade) * 0.08)) 22%,
+    transparent 48%
   );
   z-index: 2;
 }
@@ -497,18 +497,18 @@
 
 .desk-hint {
   position: absolute;
-  left: 50%;
+  left: 0;
   bottom: -68px;
-  transform: translateX(-50%);
+  transform: none;
   width: max-content;
   z-index: 9;
 }
 
 .closed-book .open-hint {
   position: absolute;
-  left: 50%;
+  left: 0;
   bottom: -64px;
-  transform: translateX(-50%);
+  transform: none;
   margin: 0;
   pointer-events: none;
   z-index: 2;
@@ -1025,22 +1025,21 @@ textarea.page-text {
   left: 0;
   width: 100%;
   transform-origin: left center;
-  transform: rotateY(calc(var(--p) * -176deg));
+  transform: rotateY(calc(var(--p) * -180deg));
 }
 
 .leaf-single.leaf-prev {
   left: 0;
   width: 100%;
   transform-origin: left center;
-  transform: rotateY(calc(var(--p) * 176deg));
+  transform: rotateY(calc(var(--p) * 180deg));
 }
 
 .leaf-single .leaf-shade {
   background: linear-gradient(
     90deg,
-    rgba(28, 18, 10, calc(0.08 + var(--p) * 0.22)),
-    rgba(28, 18, 10, calc(var(--p) * 0.08)) 28%,
-    transparent 62%
+    rgba(28, 18, 10, calc(var(--shade) * 0.34)),
+    transparent 55%
   );
 }
 
@@ -1377,12 +1376,31 @@ textarea.page-text {
 .desk-noche { --desk: #3a3531; --desk-deep: #241f1c; --desk-spot: #514b45; }
 .desk-tinta { --desk: #2c353b; --desk-deep: #1b2227; --desk-spot: #3e4952; }
 
+.brand-lockup {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.05;
+}
+
+.byline {
+  font-family: "Caveat", cursive;
+  font-size: 1.2rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--color-ink);
+}
+
 .desk-noche .quiet-note,
 .desk-noche .page-index,
+.desk-noche .byline,
 .desk-tinta .quiet-note,
 .desk-tinta .page-index,
+.desk-tinta .byline,
 .desk-ladrillo .quiet-note,
-.desk-oliva .quiet-note {
+.desk-oliva .quiet-note,
+.desk-ladrillo .byline,
+.desk-oliva .byline {
   color: #f3efe4;
 }
 

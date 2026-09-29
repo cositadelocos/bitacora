@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth/client";
+import { authClient, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/login")({
@@ -61,7 +61,7 @@ function Login() {
         <p className="quiet-note">Cuaderno</p>
         <h1>{mode === "up" ? "Crear cuenta de autor" : "Entrar al estudio"}</h1>
         <p className="dialog-copy">
-          Esto es solo para quien edita el cuaderno. Para verlo no hace falta cuenta.
+          Esto es solo para quien edita. Quien abre el enlace del cuaderno no entra, no se registra y no usa X.
         </p>
         {mode === "up" ? (
           <label className="field">
@@ -96,6 +96,13 @@ function Login() {
         </button>
         <button type="button" className="quiet-btn ghost" onClick={() => setMode(mode === "up" ? "in" : "up")}>
           {mode === "up" ? "Ya tengo cuenta" : "Crear la cuenta de autor"}
+        </button>
+        <button
+          type="button"
+          className="quiet-btn"
+          onClick={() => void signIn("grok-google", { callbackURL: "/editar" })}
+        >
+          Entrar con Google
         </button>
         <Link to="/" className="quiet-btn view-link">
           Ver el cuaderno sin cuenta

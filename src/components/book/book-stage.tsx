@@ -167,6 +167,11 @@ export function BookStage({
         if (dead) return;
         const t = Math.min(1, (now - t0) / ms);
         node.style.setProperty(name, (from + (to - from) * ease(t)).toFixed(4));
+        if (name === "--p") {
+          // Sombra solo a mitad del giro. En 0 y en 1 vale 0, así al soltar
+          // la hoja no hay un flash ni un salto de luz.
+          node.style.setProperty("--shade", Math.sin(t * Math.PI).toFixed(4));
+        }
         if (t < 1) raf = requestAnimationFrame(step);
         else done();
       };
@@ -212,12 +217,14 @@ export function BookStage({
         const next = flip.dir === "next" ? from + step : from - step;
         return Math.max(0, Math.min(maxCursor(total, narrow), next));
       });
+      // No pongas --p en 0 aquí: la hoja sigue montada hasta el siguiente
+      // render y, si el ángulo vuelve a cero antes de quitarse, se ve un
+      // tirón al final. El siguiente paso lo deja en 0 antes de montar otra.
       setFlip(null);
-      setVar("--p", 0);
       busy.current = false;
     });
     return cancel;
-  }, [flip, animateVar, narrow, setVar, total]);
+  }, [flip, animateVar, narrow, total]);
 
   useEffect(() => {
     let timer = 0;
@@ -257,6 +264,7 @@ export function BookStage({
         return;
       }
       setVar("--p", 0);
+      setVar("--shade", 0);
       setFlip({ dir, from });
     },
     [phase, flip, narrow, cursor, total, reduced, setVar],
@@ -376,7 +384,10 @@ export function BookStage({
             Volver al editor
           </button>
         ) : (
-          <span className="quiet-note">cuaderno</span>
+          <div className="brand-lockup">
+            <span className="quiet-note">cuaderno</span>
+            <span className="byline">por Jose Liz</span>
+          </div>
         )}
         <div className="quiet-actions">
           {present ? (
@@ -406,11 +417,11 @@ export function BookStage({
                 <Share2 size={15} strokeWidth={1.75} />
                 Compartir
               </button>
-              {canEdit && !previewing ? (
+              {previewing ? null : (
                 <Link to="/editar" className="quiet-btn">
                   Editar
                 </Link>
-              ) : null}
+              )}
             </>
           )}
         </div>
