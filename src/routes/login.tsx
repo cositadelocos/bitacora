@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authClient, signIn } from "@/lib/auth/client";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { authClient } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/login")({
@@ -61,7 +61,7 @@ function Login() {
         <p className="quiet-note">Cuaderno</p>
         <h1>{mode === "up" ? "Crear cuenta de autor" : "Entrar al estudio"}</h1>
         <p className="dialog-copy">
-          La primera persona que guarda la bitácora queda como única autora. El cuaderno publicado se puede ver sin cuenta.
+          Esto es solo para quien edita el cuaderno. Para verlo no hace falta cuenta.
         </p>
         {mode === "up" ? (
           <label className="field">
@@ -95,20 +95,11 @@ function Login() {
           {pending ? "Un momento…" : mode === "up" ? "Crear cuenta" : "Entrar"}
         </button>
         <button type="button" className="quiet-btn ghost" onClick={() => setMode(mode === "up" ? "in" : "up")}>
-          {mode === "up" ? "Ya tengo cuenta" : "Crear una cuenta"}
+          {mode === "up" ? "Ya tengo cuenta" : "Crear la cuenta de autor"}
         </button>
-        <div className="login-providers">
-          {GROK_PROVIDERS.map((provider) => (
-            <button
-              key={provider.providerId}
-              type="button"
-              className="quiet-btn"
-              onClick={() => void signIn(provider.providerId, { callbackURL: "/editar" })}
-            >
-              Continuar con {provider.label}
-            </button>
-          ))}
-        </div>
+        <Link to="/" className="quiet-btn view-link">
+          Ver el cuaderno sin cuenta
+        </Link>
       </form>
     </main>
   );

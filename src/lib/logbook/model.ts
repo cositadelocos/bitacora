@@ -9,6 +9,18 @@ export type InkName = (typeof INKS)[number];
 export const CLOTHS = ["olive", "ink", "brick", "kraft"] as const;
 export type Cloth = (typeof CLOTHS)[number];
 
+export const DESKS = [
+  { id: "yeso", label: "Yeso" },
+  { id: "arena", label: "Arena" },
+  { id: "papel", label: "Papel" },
+  { id: "oliva", label: "Oliva" },
+  { id: "ladrillo", label: "Ladrillo" },
+  { id: "noche", label: "Noche" },
+  { id: "tinta", label: "Tinta" },
+] as const;
+export type DeskId = (typeof DESKS)[number]["id"];
+const DESK_SET = new Set<string>(DESKS.map((desk) => desk.id));
+
 export const FONT_GROUPS = [
   {
     id: "hand",
@@ -196,6 +208,7 @@ export type LogbookDoc = {
   version: 1;
   cover: Cover;
   back: BackCover;
+  desk: DeskId;
   pages: LogPage[];
 };
 
@@ -353,7 +366,14 @@ export function parseDoc(input: unknown): LogbookDoc {
     });
   }
   if (!pages.length) pages.push(blankPage("page-blank"));
-  return { version: 1, cover, back, pages };
+  const deskRaw = String(raw.desk ?? "yeso");
+  return {
+    version: 1,
+    cover,
+    back,
+    desk: DESK_SET.has(deskRaw) ? (deskRaw as DeskId) : "yeso",
+    pages,
+  };
 }
 
 export function blankPage(id = cryptoId()): LogPage {
@@ -445,6 +465,7 @@ export function seedDoc(): LogbookDoc {
       ...coverPlacement("plate"),
     },
     back: { note: "", cloth: "same" },
+    desk: "yeso",
     pages: [
       {
         id: "page-proceso",

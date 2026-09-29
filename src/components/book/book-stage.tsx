@@ -204,7 +204,7 @@ export function BookStage({
   useEffect(() => {
     if (!flip) return;
     busy.current = true;
-    const cancel = animateVar("--p", 0, 1, 820, () => {
+    const cancel = animateVar("--p", 0, 1, narrow ? 1080 : 820, () => {
       const step = narrow ? 1 : 2;
       setCursor((c) => {
         const base = narrow ? c : evenCursor(c, total);
@@ -368,7 +368,7 @@ export function BookStage({
   return (
     <div
       ref={rootRef}
-      className={`desk-screen ${hot || present ? "is-hot" : ""} ${present ? "is-present" : ""}`}
+      className={`desk-screen desk-${doc.desk ?? "yeso"} ${hot || present ? "is-hot" : ""} ${present ? "is-present" : ""}`}
     >
       <div className={`quiet-bar top-bar ${present ? "present-bar" : ""}`}>
         {previewing ? (
@@ -439,7 +439,7 @@ export function BookStage({
                   <CoverFace cover={doc.cover} imageUrl={coverUrl} />
                 </span>
               </span>
-              <span className="open-hint">Abrir</span>
+              <span className="open-hint">Abrir cuaderno</span>
             </button>
           ) : (
             <div className="single-book">
@@ -505,7 +505,11 @@ export function BookStage({
                 <button type="button" className="cover-hit" aria-label="Abrir cuaderno" onClick={() => go("next")} />
               ) : null}
             </div>
-            {phase === "shut" ? <p className="open-hint desk-hint">Abrir cuaderno</p> : null}
+            {phase === "shut" ? (
+              <button type="button" className="open-hint desk-hint" onClick={() => go("next")}>
+                Abrir cuaderno
+              </button>
+            ) : null}
           </div>
         )}
 

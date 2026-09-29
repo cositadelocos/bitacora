@@ -72,9 +72,7 @@ export function ShareDialog({
       >
         <h2 id="share-title">Compartir</h2>
         <p className="dialog-copy">
-          {publishedNote
-            ? "El enlace abre la bitácora publicada. Quien lo reciba puede hojearla, no editarla."
-            : "Cualquiera con el enlace puede ver el cuaderno publicado."}
+          Este enlace solo abre el cuaderno para verlo. No pide cuenta, ni registro, ni entrar con X. Quien lo reciba hojea. La edición queda solo para ti.
         </p>
         <label className="field">
           <span>Enlace</span>

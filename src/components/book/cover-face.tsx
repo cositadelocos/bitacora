@@ -51,18 +51,11 @@ export function CoverFace({ cover, imageUrl }: { cover: Cover; imageUrl?: string
 
 export function BackFace({ cover, back }: { cover: Cover; back?: BackCover }) {
   const cloth = !back || back.cloth === "same" ? cover.cloth : back.cloth;
+  const note = back?.note?.trim() ?? "";
   return (
     <div className={`cover-board cloth-${cloth} is-back`}>
       <div className="cover-weave" aria-hidden="true" />
-      <div className="cover-type no-image back-type">
-        <p className="cover-kicker">contraportada</p>
-        <h1>{cover.title}</h1>
-        {back?.note ? <p className="cover-sub">{back.note}</p> : null}
-        <div className="cover-foot">
-          {cover.author ? <span>{cover.author}</span> : <span />}
-          {cover.date ? <span>{cover.date}</span> : null}
-        </div>
-      </div>
+      {note ? <p className="back-note">{note}</p> : null}
       <span className="elastic" aria-hidden="true" />
       <span className="cover-spine-shade" aria-hidden="true" />
     </div>

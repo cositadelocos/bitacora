@@ -7,6 +7,7 @@ import { compressImage, loadAssets, rememberAsset } from "@/lib/logbook/assets";
 import {
   DECO_LABEL,
   DECOS,
+  DESKS,
   FONT_GROUPS,
   INK_LABEL,
   INKS,
@@ -19,6 +20,7 @@ import {
   pageAssetIds,
   resolveFont,
   type Cloth,
+  type DeskId,
   type DecoKind,
   type ImageLook,
   type InkName,
@@ -386,7 +388,7 @@ export function EditorApp() {
   const coverUrl = doc.cover.assetId ? assets[doc.cover.assetId] : undefined;
 
   return (
-    <div className="editor-shell">
+    <div className={`editor-shell desk-${doc.desk ?? "yeso"}`}>
       <header className="editor-top">
         <div>
           <p className="quiet-note">Editar bitácora</p>
@@ -546,6 +548,10 @@ export function EditorApp() {
       </main>
 
       <aside className={`tools ${panel === "tools" ? "open" : ""}`}>
+        <DeskFields
+          desk={doc.desk ?? "yeso"}
+          onChange={(desk) => commit((current) => ({ ...current, desk }), true)}
+        />
         {pageId === "cover" ? (
           <CoverFields
             cover={doc.cover}
@@ -555,7 +561,6 @@ export function EditorApp() {
           />
         ) : pageId === "back" ? (
           <BackFields
-            cover={doc.cover}
             back={doc.back ?? { note: "", cloth: "same" }}
             onChange={(partial) =>
               commit(
@@ -816,20 +821,45 @@ export function EditorApp() {
   }
 }
 
+function DeskFields({
+  desk,
+  onChange,
+}: {
+  desk: DeskId;
+  onChange: (desk: DeskId) => void;
+}) {
+  return (
+    <section>
+      <h2>Fondo</h2>
+      <p className="dialog-copy">El color de la mesa donde descansa el cuaderno.</p>
+      <div className="choice-row">
+        {DESKS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`desk-swatch desk-${item.id} ${desk === item.id ? "is-on" : ""}`}
+            aria-label={item.label}
+            title={item.label}
+            onClick={() => onChange(item.id)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function BackFields({
-  cover,
   back,
   onChange,
 }: {
-  cover: LogbookDoc["cover"];
   back: LogbookDoc["back"];
   onChange: (partial: Partial<LogbookDoc["back"]>) => void;
 }) {
   return (
     <section>
-      <h2>Tapa de atrás</h2>
+      <h2>Contraportada</h2>
       <p className="dialog-copy">
-        Se ve al pasar la última hoja. La tela puede ser la misma de la portada.
+        Es la tapa de atrás, otra pieza. No repite el título ni la fecha de la portada. Si escribes una nota, sale a mano sobre la tela.
       </p>
       <label className="field">
         <span>Nota</span>
@@ -860,9 +890,6 @@ function BackFields({
           </button>
         ))}
       </div>
-      <p className="dialog-copy">
-        El título “{cover.title}” y la fecha salen solos, tomados de la portada.
-      </p>
     </section>
   );
 }
