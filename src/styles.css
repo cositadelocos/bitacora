@@ -13,6 +13,12 @@
   --color-brick: #8d4d3b;
   --color-slate: #6e787e;
   --color-brown: #6b4f3a;
+  --color-wine: #7a3140;
+  --color-pine: #2f4f3e;
+  --color-indigo: #2e4060;
+  --color-sand: #b08948;
+  --color-cream: #f3efe4;
+  --color-chalk: #f7f6f2;
   --color-line: #d9d0bc;
   --font-serif: "Fraunces", "Iowan Old Style", Palatino, "Palatino Linotype", serif;
   --font-hand: "Caveat", "Segoe Print", cursive;
@@ -224,10 +230,18 @@
 }
 
 .is-present .book-scene.is-spread {
+  --ph: min(82vh, 860px, calc(90vw / 1.41421356));
+}
+
+.is-present.is-near .book-scene.is-spread {
   --ph: min(94vh, 980px, calc(96vw / 1.41421356));
 }
 
 .is-present .book-scene.is-single {
+  --ph: min(80vh, calc(84vw * 1.41421356));
+}
+
+.is-present.is-near .book-scene.is-single {
   --ph: min(92vh, calc(94vw * 1.41421356));
 }
 
@@ -908,6 +922,12 @@ textarea.page-text {
 .cloth-ink { background: #2a2826; }
 .cloth-brick { background: #7c4638; }
 .cloth-kraft { background: #cbb892; color: var(--color-ink); }
+.cloth-navy { background: #24344a; }
+.cloth-wine { background: #6e3140; }
+.cloth-forest { background: #2f4636; }
+.cloth-sand { background: #c6b48a; color: var(--color-ink); }
+.cloth-night { background: #1c1b19; }
+.cloth-clay { background: #a56a52; }
 
 .cover-weave {
   position: absolute;
@@ -938,12 +958,13 @@ textarea.page-text {
   right: 10%;
   bottom: 7%;
   top: auto;
-  padding-top: 28px;
-  background: linear-gradient(transparent, rgba(20, 16, 12, 0.45));
+  background: none;
 }
 
-.cloth-kraft .cover-type.has-image {
-  background: linear-gradient(transparent, rgba(241, 238, 215, 0.82));
+.cover-type.is-placed {
+  right: auto;
+  bottom: auto;
+  width: 78%;
 }
 
 .cover-type h1 {
@@ -998,6 +1019,31 @@ textarea.page-text {
 .cover-art-wrap.is-hit {
   z-index: 4;
   background: transparent;
+}
+
+.cover-text-hit {
+  position: absolute;
+  z-index: 6;
+  cursor: grab;
+}
+
+.cover-text-hit.is-bottom {
+  left: 8%;
+  right: 10%;
+  bottom: 7%;
+  top: 46%;
+}
+
+.cover-text-hit.is-top {
+  left: 9%;
+  right: 12%;
+  top: 16%;
+  bottom: 18%;
+}
+
+.cover-text-hit.is-placed {
+  width: 78%;
+  height: 34%;
 }
 
 .canvas-page.is-cover {
@@ -1059,7 +1105,8 @@ textarea.page-text {
 }
 
 .single-under,
-.single-static {
+.single-static,
+.single-hold {
   box-shadow: 0 18px 34px rgba(48, 34, 20, 0.24);
 }
 
@@ -1071,9 +1118,23 @@ textarea.page-text {
 
 .single-under,
 .single-static,
+.single-hold,
 .leaf-single {
   position: absolute;
   inset: 0;
+}
+
+.single-hold {
+  z-index: 1;
+}
+
+.single-under {
+  z-index: 2;
+  opacity: 0;
+}
+
+.is-turning .single-under {
+  opacity: clamp(0, calc((var(--p) - 0.9) / 0.1), 1);
 }
 
 .leaf-single {
@@ -1081,8 +1142,7 @@ textarea.page-text {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   z-index: 3;
-  /* Se apaga al final para no quedar de canto: en el teléfono esa línea se ve como un corte. */
-  opacity: clamp(0, calc((0.84 - var(--p)) / 0.16), 1);
+  opacity: clamp(0, calc((0.98 - var(--p)) / 0.08), 1);
 }
 
 .leaf-single.leaf-next {
@@ -1435,7 +1495,12 @@ textarea.page-text {
 
 .tone-btn.cloth-ink,
 .tone-btn.cloth-olive,
-.tone-btn.cloth-brick {
+.tone-btn.cloth-brick,
+.tone-btn.cloth-navy,
+.tone-btn.cloth-wine,
+.tone-btn.cloth-forest,
+.tone-btn.cloth-night,
+.tone-btn.cloth-clay {
   color: var(--color-paper);
 }
 
@@ -1454,6 +1519,11 @@ textarea.page-text {
 .desk-ladrillo { --desk: #a86b58; --desk-deep: #8b5344; --desk-spot: #c48974; }
 .desk-noche { --desk: #3a3531; --desk-deep: #241f1c; --desk-spot: #514b45; }
 .desk-tinta { --desk: #2c353b; --desk-deep: #1b2227; --desk-spot: #3e4952; }
+.desk-crema { --desk: #e6dcc8; --desk-deep: #d2c6ad; --desk-spot: #f3ead8; }
+.desk-musgo { --desk: #6d7a62; --desk-deep: #556048; --desk-spot: #8b977e; }
+.desk-vino { --desk: #6d4550; --desk-deep: #54343d; --desk-spot: #8a6270; }
+.desk-carbon { --desk: #4a4744; --desk-deep: #2e2c2a; --desk-spot: #65615c; }
+.desk-cielo { --desk: #b7c3c6; --desk-deep: #9aabaf; --desk-spot: #d5dee0; }
 
 .brand-lockup {
   display: flex;
@@ -1479,7 +1549,15 @@ textarea.page-text {
 .desk-ladrillo .quiet-note,
 .desk-oliva .quiet-note,
 .desk-ladrillo .byline,
-.desk-oliva .byline {
+.desk-oliva .byline,
+.desk-musgo .quiet-note,
+.desk-musgo .byline,
+.desk-vino .quiet-note,
+.desk-vino .page-index,
+.desk-vino .byline,
+.desk-carbon .quiet-note,
+.desk-carbon .page-index,
+.desk-carbon .byline {
   color: #f3efe4;
 }
 
@@ -1508,6 +1586,12 @@ textarea.page-text {
 .swatch-mustard { background: var(--color-mustard); }
 .swatch-slate { background: var(--color-slate); }
 .swatch-brown { background: var(--color-brown); }
+.swatch-wine { background: var(--color-wine); }
+.swatch-pine { background: var(--color-pine); }
+.swatch-indigo { background: var(--color-indigo); }
+.swatch-sand { background: var(--color-sand); }
+.swatch-cream { background: var(--color-cream); }
+.swatch-chalk { background: var(--color-chalk); box-shadow: inset 0 0 0 1px rgba(44, 41, 38, 0.25); }
 
 .looks,
 .element-fields,

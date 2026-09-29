@@ -3,11 +3,23 @@ import type { CSSProperties } from "react";
 /** A5 portrait: height / width. Coordinates are percentages of page width. */
 export const RATIO = Math.SQRT2;
 
-export const INKS = ["ink", "olive", "brick", "mustard", "slate", "brown"] as const;
+export const INKS = ["ink", "olive", "brick", "mustard", "slate", "brown", "wine", "pine", "indigo", "sand", "cream", "chalk"] as const;
 export type InkName = (typeof INKS)[number];
 
-export const CLOTHS = ["olive", "ink", "brick", "kraft"] as const;
+export const CLOTHS = ["olive", "ink", "brick", "kraft", "navy", "wine", "forest", "sand", "night", "clay"] as const;
 export type Cloth = (typeof CLOTHS)[number];
+export const CLOTH_LABEL: Record<Cloth, string> = {
+  olive: "Oliva",
+  ink: "Tinta",
+  brick: "Ladrillo",
+  kraft: "Kraft",
+  navy: "Marino",
+  wine: "Vino",
+  forest: "Bosque",
+  sand: "Arena",
+  night: "Noche",
+  clay: "Arcilla",
+};
 
 export const DESKS = [
   { id: "yeso", label: "Yeso" },
@@ -17,6 +29,11 @@ export const DESKS = [
   { id: "ladrillo", label: "Ladrillo" },
   { id: "noche", label: "Noche" },
   { id: "tinta", label: "Tinta" },
+  { id: "crema", label: "Crema" },
+  { id: "musgo", label: "Musgo" },
+  { id: "vino", label: "Vino" },
+  { id: "carbon", label: "Carbón" },
+  { id: "cielo", label: "Cielo" },
 ] as const;
 export type DeskId = (typeof DESKS)[number]["id"];
 const DESK_SET = new Set<string>(DESKS.map((desk) => desk.id));
@@ -197,11 +214,21 @@ export type Cover = {
   imgW: number;
   imgH: number;
   imgRot: number;
+  textX: number | null;
+  textY: number | null;
+  textInk: InkName | null;
 };
 
 export type BackCover = {
   note: string;
   cloth: Cloth | "same";
+  assetId: string | null;
+  imageFit: "plate" | "full";
+  imgX: number;
+  imgY: number;
+  imgW: number;
+  imgH: number;
+  imgRot: number;
 };
 
 export type LogbookDoc = {
@@ -247,6 +274,12 @@ export const INK_LABEL: Record<InkName, string> = {
   mustard: "Mostaza",
   slate: "Pizarra",
   brown: "Sepia",
+  wine: "Vino",
+  pine: "Pino",
+  indigo: "Índigo",
+  sand: "Arena",
+  cream: "Crema",
+  chalk: "Blanco",
 };
 
 const INK_SET = new Set<string>(INKS);
@@ -343,11 +376,23 @@ export function parseDoc(input: unknown): LogbookDoc {
     imgW: coverRaw.imgW == null ? placed.imgW : num(coverRaw.imgW, placed.imgW, 8, 170),
     imgH: coverRaw.imgH == null ? placed.imgH : num(coverRaw.imgH, placed.imgH, 8, 220),
     imgRot: coverRaw.imgRot == null ? placed.imgRot : num(coverRaw.imgRot, placed.imgRot, -180, 180),
+    textX: coverRaw.textX == null ? null : num(coverRaw.textX, 8, -20, 90),
+    textY: coverRaw.textY == null ? null : num(coverRaw.textY, 80, -20, 180),
+    textInk: INK_SET.has(String(coverRaw.textInk)) ? (coverRaw.textInk as InkName) : null,
   };
   const backCloth = String(backRaw.cloth ?? "same");
+  const backFit = backRaw.imageFit === "full" ? "full" : "plate";
+  const backPlaced = coverPlacement(backFit);
   const back: BackCover = {
     note: str(backRaw.note, 240),
     cloth: CLOTH_SET.has(backCloth) ? (backCloth as Cloth) : "same",
+    assetId: backRaw.assetId ? str(backRaw.assetId, 80) || null : null,
+    imageFit: backFit,
+    imgX: backRaw.imgX == null ? backPlaced.imgX : num(backRaw.imgX, backPlaced.imgX, -30, 130),
+    imgY: backRaw.imgY == null ? backPlaced.imgY : num(backRaw.imgY, backPlaced.imgY, -30, 200),
+    imgW: backRaw.imgW == null ? backPlaced.imgW : num(backRaw.imgW, backPlaced.imgW, 8, 170),
+    imgH: backRaw.imgH == null ? backPlaced.imgH : num(backRaw.imgH, backPlaced.imgH, 8, 220),
+    imgRot: backRaw.imgRot == null ? backPlaced.imgRot : num(backRaw.imgRot, backPlaced.imgRot, -180, 180),
   };
   const pages: LogPage[] = [];
   for (const page of pagesRaw.slice(0, 240)) {
@@ -388,6 +433,7 @@ export function cryptoId() {
 export function assetIds(doc: LogbookDoc): string[] {
   const ids = new Set<string>();
   if (doc.cover.assetId) ids.add(doc.cover.assetId);
+  if (doc.back?.assetId) ids.add(doc.back.assetId);
   for (const page of doc.pages) {
     for (const el of page.elements) if (el.assetId) ids.add(el.assetId);
   }
@@ -462,9 +508,12 @@ export function seedDoc(): LogbookDoc {
       assetId: null,
       cloth: "olive",
       showText: true,
+      textX: null,
+      textY: null,
+      textInk: null,
       ...coverPlacement("plate"),
     },
-    back: { note: "", cloth: "same" },
+    back: { note: "", cloth: "same", assetId: null, ...coverPlacement("plate") },
     desk: "yeso",
     pages: [
       {

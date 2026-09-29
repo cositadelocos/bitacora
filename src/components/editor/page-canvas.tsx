@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { LogElement, LogPage, Cover } from "@/lib/logbook/model";
+import type { LogElement, LogPage, Cover, BackCover } from "@/lib/logbook/model";
 import { elementStyle, fontStack, inkVar, RATIO } from "@/lib/logbook/model";
 import { Sheet } from "@/components/book/sheet";
 import { ElementBody } from "@/components/book/element-body";
-import { CoverFace } from "@/components/book/cover-face";
+import { CoverFace, BackFace } from "@/components/book/cover-face";
 
 type Drag =
   | { kind: "move"; ids: string[]; origins: Record<string, { x: number; y: number }>; start: { x: number; y: number } }
@@ -13,6 +13,7 @@ type Drag =
 
 type CoverDrag =
   | { kind: "move"; dx: number; dy: number }
+  | { kind: "text"; dx: number; dy: number }
   | { kind: "resize" }
   | { kind: "rotate"; offset: number };
 
@@ -299,6 +300,13 @@ export function CoverCanvas({
         });
         return;
       }
+      if (current.kind === "text") {
+        onChange({
+          textX: clamp(point.x - current.dx, -10, 70),
+          textY: clamp(point.y - current.dy, -10, 150),
+        });
+        return;
+      }
       if (current.kind === "rotate") {
         const angle = (Math.atan2(point.y - cover.imgY, point.x - cover.imgX) * 180) / Math.PI;
         onChange({ imgRot: Math.round((angle - current.offset) * 10) / 10 });
@@ -403,7 +411,190 @@ export function CoverCanvas({
           ) : null}
         </div>
       ) : null}
+      {cover.showText ? (
+        <div
+          className={`cover-text-hit ${
+            cover.textX != null && cover.textY != null ? "is-placed" : imageUrl ? "is-bottom" : "is-top"
+          }`}
+          style={
+            cover.textX != null && cover.textY != null
+              ? { left: `${cover.textX}%`, top: `${cover.textY / RATIO}%` }
+              : undefined
+          }
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            setSelected(false);
+            const page = pageRef.current!.getBoundingClientRect();
+            const box = event.currentTarget.getBoundingClientRect();
+            const originX = ((box.left - page.left) / page.width) * 100;
+            const originY = ((box.top - page.top) / page.width) * 100;
+            const point = units(event);
+            drag.current = { kind: "text", dx: point.x - originX, dy: point.y - originY };
+            if (cover.textX == null || cover.textY == null) onChange({ textX: originX, textY: originY });
+          }}
+        />
+      ) : null}
       {dropHot ? <p className="drop-label">Soltar en la portada</p> : null}
+    </div>
+  );
+}
+
+export function BackCanvas({
+  cover,
+  back,
+  imageUrl,
+  onChange,
+  onGestureStart,
+  onDropFiles,
+  dropHot,
+  onDragState,
+}: {
+  cover: Cover;
+  back: BackCover;
+  imageUrl?: string;
+  onChange: (partial: Partial<BackCover>) => void;
+  onGestureStart: () => void;
+  onDropFiles: (files: File[]) => void;
+  dropHot: boolean;
+  onDragState: (hot: boolean) => void;
+}) {
+  const pageRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<CoverDrag | null>(null);
+  const recording = useRef(false);
+  const [selected, setSelected] = useState(Boolean(imageUrl));
+
+  function units(event: { clientX: number; clientY: number }) {
+    const rect = pageRef.current!.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.width) * 100,
+    };
+  }
+
+  function begin() {
+    if (recording.current) return;
+    recording.current = true;
+    onGestureStart();
+  }
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const current = drag.current;
+      if (!current || current.kind === "text") return;
+      const point = units(event);
+      begin();
+      if (current.kind === "move") {
+        onChange({
+          imgX: clamp(point.x - current.dx, -20, 120),
+          imgY: clamp(point.y - current.dy, -20, 180),
+        });
+        return;
+      }
+      if (current.kind === "rotate") {
+        const angle = (Math.atan2(point.y - back.imgY, point.x - back.imgX) * 180) / Math.PI;
+        onChange({ imgRot: Math.round((angle - current.offset) * 10) / 10 });
+        return;
+      }
+      const dx = point.x - back.imgX;
+      const dy = point.y - back.imgY;
+      const rad = (-back.imgRot * Math.PI) / 180;
+      const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const w = clamp(Math.abs(lx) * 2, 12, 150);
+      const aspect = back.imgW > 0 ? back.imgH / back.imgW : 1;
+      onChange({ imgW: w, imgH: w * aspect });
+    };
+    const up = () => {
+      drag.current = null;
+      recording.current = false;
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, [back.imgX, back.imgY, back.imgW, back.imgH, back.imgRot, onChange, onGestureStart]);
+
+  return (
+    <div
+      ref={pageRef}
+      className={`canvas-page is-cover is-editing ${dropHot ? "is-drop" : ""}`}
+      style={{ aspectRatio: `1 / ${RATIO}` }}
+      onPointerDown={() => setSelected(false)}
+      onDragEnter={(event) => {
+        if (![...event.dataTransfer.types].includes("Files")) return;
+        event.preventDefault();
+        onDragState(true);
+      }}
+      onDragOver={(event) => {
+        if (![...event.dataTransfer.types].includes("Files")) return;
+        event.preventDefault();
+        onDragState(true);
+      }}
+      onDragLeave={() => onDragState(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDragState(false);
+        const files = [...event.dataTransfer.files].filter((file) => file.type.startsWith("image/"));
+        if (files.length) onDropFiles(files);
+      }}
+    >
+      <BackFace cover={cover} back={back} imageUrl={imageUrl} />
+      {imageUrl ? (
+        <div
+          className="cover-art-wrap is-hit"
+          style={{
+            left: `${back.imgX}%`,
+            top: `${back.imgY / RATIO}%`,
+            width: `${back.imgW}%`,
+            height: `${back.imgH / RATIO}%`,
+            transform: `translate(-50%, -50%) rotate(${back.imgRot}deg)`,
+          }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            setSelected(true);
+            const point = units(event);
+            drag.current = { kind: "move", dx: point.x - back.imgX, dy: point.y - back.imgY };
+          }}
+        >
+          {selected ? (
+            <>
+              <span className="sel-frame" />
+              <button
+                type="button"
+                className="grip"
+                aria-label="Mover ilustración"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  const point = units(event);
+                  drag.current = { kind: "move", dx: point.x - back.imgX, dy: point.y - back.imgY };
+                }}
+              />
+              <button
+                type="button"
+                className="handle handle-rot"
+                aria-label="Rotar ilustración"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  const point = units(event);
+                  const angle = (Math.atan2(point.y - back.imgY, point.x - back.imgX) * 180) / Math.PI;
+                  drag.current = { kind: "rotate", offset: angle - back.imgRot };
+                }}
+              />
+              <button
+                type="button"
+                className="handle handle-se"
+                aria-label="Escalar ilustración"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  drag.current = { kind: "resize" };
+                }}
+              />
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {dropHot ? <p className="drop-label">Soltar en la contraportada</p> : null}
     </div>
   );
 }

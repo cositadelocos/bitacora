@@ -5,6 +5,8 @@ import { UserButton } from "@/lib/auth/gates";
 import { getDraft, publishBook, saveDraft, uploadAsset } from "@/lib/logbook/api";
 import { compressImage, loadAssets, rememberAsset } from "@/lib/logbook/assets";
 import {
+  CLOTHS,
+  CLOTH_LABEL,
   DECO_LABEL,
   DECOS,
   DESKS,
@@ -19,7 +21,6 @@ import {
   cryptoId,
   pageAssetIds,
   resolveFont,
-  type Cloth,
   type DeskId,
   type DecoKind,
   type ImageLook,
@@ -30,10 +31,9 @@ import {
   type TapeKind,
   type Tone,
 } from "@/lib/logbook/model";
-import { BackFace } from "@/components/book/cover-face";
 import { DecoGraphic } from "@/components/book/decorations";
 import { BookStage } from "@/components/book/book-stage";
-import { CoverCanvas, PageCanvas } from "@/components/editor/page-canvas";
+import { CoverCanvas, PageCanvas, BackCanvas } from "@/components/editor/page-canvas";
 
 const EMPTY_LOOK: ImageLook = { shadow: false, frame: false, scan: false, torn: false, fade: 0 };
 
@@ -76,6 +76,7 @@ export function EditorApp() {
   const [assets, setAssets] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
+  const backFileRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<LogbookDoc | null>(null);
   const gen = useRef(0);
   docRef.current = doc;
@@ -109,6 +110,7 @@ export function EditorApp() {
     if (!doc) return "";
     const ids = new Set<string>();
     if (doc.cover.assetId) ids.add(doc.cover.assetId);
+    if (doc.back?.assetId) ids.add(doc.back.assetId);
     if (page) for (const id of pageAssetIds(page)) ids.add(id);
     return [...ids].join("|");
   }, [doc, page]);
@@ -323,7 +325,7 @@ export function EditorApp() {
     });
   }
 
-  async function ingest(files: File[], target: "page" | "cover") {
+  async function ingest(files: File[], target: "page" | "cover" | "back") {
     if (!files.length) return;
     setStatus(`Subiendo ${files.length === 1 ? "imagen" : `${files.length} imágenes`}…`);
     const made: LogElement[] = [];
@@ -348,14 +350,15 @@ export function EditorApp() {
         }
         rememberAsset("owner", id, image.dataUrl, image.thumb);
         setAssets((prev) => ({ ...prev, [id]: image.dataUrl }));
-        if (target === "cover") {
+        if (target === "cover" || target === "back") {
           coverAsset = id;
           const aspect = image.width / image.height;
+          const placement = coverPlacement(target === "cover" ? (doc?.cover.imageFit ?? "plate") : (doc?.back?.imageFit ?? "plate"), aspect);
           commit(
-            (current) => ({
-              ...current,
-              cover: { ...current.cover, assetId: id, ...coverPlacement(current.cover.imageFit ?? "plate", aspect) },
-            }),
+            (current) =>
+              target === "cover"
+                ? { ...current, cover: { ...current.cover, assetId: id, ...placement } }
+                : { ...current, back: { ...current.back, assetId: id, ...placement } },
             true,
           );
           break;
@@ -384,7 +387,7 @@ export function EditorApp() {
       }
     }
     if (coverAsset) {
-      setStatus("Ilustración de portada lista");
+      setStatus(target === "back" ? "Imagen en la contraportada" : "Ilustración de portada lista");
       return;
     }
     if (!made.length || pageId === "cover") return;
@@ -578,9 +581,21 @@ export function EditorApp() {
             onDropFiles={(files) => void ingest(files, "cover")}
           />
         ) : pageId === "back" ? (
-          <div className="canvas-page is-cover" style={{ aspectRatio: `1 / ${RATIO}` }}>
-            <BackFace cover={doc.cover} back={doc.back} />
-          </div>
+          <BackCanvas
+            cover={doc.cover}
+            back={doc.back}
+            imageUrl={doc.back.assetId ? assets[doc.back.assetId] : undefined}
+            dropHot={dropHot}
+            onDragState={setDropHot}
+            onGestureStart={() => {
+              setPast((stack) => (doc ? [...stack, doc].slice(-40) : stack));
+              setFuture([]);
+            }}
+            onChange={(partial) =>
+              commit((current) => ({ ...current, back: { ...current.back, ...partial } }), false)
+            }
+            onDropFiles={(files) => void ingest(files, "back")}
+          />
         ) : page ? (
           <PageCanvas
             page={page}
@@ -633,16 +648,18 @@ export function EditorApp() {
           />
         ) : pageId === "back" ? (
           <BackFields
-            back={doc.back ?? { note: "", cloth: "same" }}
+            back={doc.back ?? { note: "", cloth: "same", assetId: null, imageFit: "plate", imgX: 50, imgY: 46, imgW: 68, imgH: 78, imgRot: -1.2 }}
             onChange={(partial) =>
               commit(
                 (current) => ({
                   ...current,
-                  back: { ...(current.back ?? { note: "", cloth: "same" }), ...partial },
+                  back: { ...current.back, ...partial },
                 }),
                 true,
               )
             }
+            onUpload={() => backFileRef.current?.click()}
+            onClear={() => commit((current) => ({ ...current, back: { ...current.back, assetId: null } }), true)}
           />
         ) : (
           <>
@@ -900,6 +917,17 @@ export function EditorApp() {
           void ingest(files, "cover");
         }}
       />
+      <input
+        ref={backFileRef}
+        className="sr-only"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])];
+          event.target.value = "";
+          void ingest(files, "back");
+        }}
+      />
     </div>
   );
 
@@ -948,15 +976,19 @@ function DeskFields({
 function BackFields({
   back,
   onChange,
+  onUpload,
+  onClear,
 }: {
   back: LogbookDoc["back"];
   onChange: (partial: Partial<LogbookDoc["back"]>) => void;
+  onUpload: () => void;
+  onClear: () => void;
 }) {
   return (
     <section>
       <h2>Contraportada</h2>
       <p className="dialog-copy">
-        Es la tapa de atrás, otra pieza. No repite el título ni la fecha de la portada. Si escribes una nota, sale a mano sobre la tela.
+        Es la tapa de atrás. Puedes poner una imagen, moverla como en la portada, y una nota encima. No repite el título.
       </p>
       <label className="field">
         <span>Nota</span>
@@ -967,6 +999,22 @@ function BackFields({
           onChange={(event) => onChange({ note: event.target.value })}
         />
       </label>
+      <div className="tool-grid">
+        <button
+          type="button"
+          className={`quiet-btn ${back.imageFit === "plate" ? "is-on" : ""}`}
+          onClick={() => onChange(coverPlacement("plate", back.imgW && back.imgH ? back.imgW / back.imgH : 1))}
+        >
+          Lámina
+        </button>
+        <button
+          type="button"
+          className={`quiet-btn ${back.imageFit === "full" ? "is-on" : ""}`}
+          onClick={() => onChange(coverPlacement("full", back.imgW && back.imgH ? back.imgW / back.imgH : 1))}
+        >
+          Completa
+        </button>
+      </div>
       <p className="tool-label">Tela</p>
       <div className="choice-row">
         <button
@@ -976,16 +1024,26 @@ function BackFields({
         >
           Igual
         </button>
-        {(["olive", "ink", "brick", "kraft"] as Cloth[]).map((cloth) => (
+        {CLOTHS.map((cloth) => (
           <button
             key={cloth}
             type="button"
             className={`tone-btn cloth-${cloth} ${back.cloth === cloth ? "is-on" : ""}`}
             onClick={() => onChange({ cloth })}
           >
-            {cloth === "olive" ? "Oliva" : cloth === "ink" ? "Tinta" : cloth === "brick" ? "Ladrillo" : "Kraft"}
+            {CLOTH_LABEL[cloth]}
           </button>
         ))}
+      </div>
+      <div className="tool-grid">
+        <button type="button" className="ink-btn" onClick={onUpload}>
+          Subir imagen
+        </button>
+        {back.assetId ? (
+          <button type="button" className="quiet-btn danger" onClick={onClear}>
+            Quitar imagen
+          </button>
+        ) : null}
       </div>
     </section>
   );
@@ -1030,6 +1088,26 @@ function CoverFields({
         <input type="checkbox" checked={cover.showText} onChange={(event) => onChange({ showText: event.target.checked })} />
         Mostrar texto
       </label>
+      <p className="tool-label">Color del texto</p>
+      <div className="swatches">
+        <button
+          type="button"
+          className={`swatch ${cover.textInk == null ? "is-on" : ""}`}
+          title="De la tela"
+          style={{ background: "linear-gradient(135deg, #f3efe4 50%, #2c2926 50%)" }}
+          onClick={() => onChange({ textInk: null })}
+        />
+        {INKS.map((ink) => (
+          <button
+            key={ink}
+            type="button"
+            title={INK_LABEL[ink]}
+            className={`swatch swatch-${ink} ${cover.textInk === ink ? "is-on" : ""}`}
+            onClick={() => onChange({ textInk: ink })}
+          />
+        ))}
+      </div>
+      <p className="dialog-copy">Arrastra el título en la portada para moverlo. La ilustración se mueve, escala y rota aparte.</p>
       <div className="tool-grid">
         <button
           type="button"
@@ -1049,14 +1127,14 @@ function CoverFields({
       <p className="dialog-copy">Arrastra la ilustración en la portada para moverla, escalarla o rotarla. Un PNG se queda transparente.</p>
       <p className="tool-label">Tela</p>
       <div className="choice-row">
-        {(["olive", "ink", "brick", "kraft"] as Cloth[]).map((cloth) => (
+        {CLOTHS.map((cloth) => (
           <button
             key={cloth}
             type="button"
             className={`tone-btn cloth-${cloth} ${cover.cloth === cloth ? "is-on" : ""}`}
             onClick={() => onChange({ cloth })}
           >
-            {cloth === "olive" ? "Oliva" : cloth === "ink" ? "Tinta" : cloth === "brick" ? "Ladrillo" : "Kraft"}
+            {CLOTH_LABEL[cloth]}
           </button>
         ))}
       </div>

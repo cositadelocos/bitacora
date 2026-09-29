@@ -92,7 +92,8 @@ function SlotSheet({
   single: boolean;
 }) {
   if (index === backIndex(doc.pages.length, single)) {
-    return <BackFace cover={doc.cover} back={doc.back} />;
+    const backUrl = doc.back?.assetId ? assets[doc.back.assetId] : undefined;
+    return <BackFace cover={doc.cover} back={doc.back} imageUrl={backUrl} />;
   }
   const page = doc.pages[index];
   if (!page) return <Sheet tone="ivory" seed={`blank-${index}`} quiet />;
@@ -128,6 +129,7 @@ export function BookStage({
   const [flip, setFlip] = useState<Flip>(null);
   const [hot, setHot] = useState(true);
   const [present, setPresent] = useState(false);
+  const [near, setNear] = useState(false);
   const [lens, setLens] = useState(false);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -140,6 +142,7 @@ export function BookStage({
   const priority = useMemo(() => {
     const ids = new Set<string>();
     if (doc.cover.assetId) ids.add(doc.cover.assetId);
+    if (doc.back?.assetId) ids.add(doc.back.assetId);
     const indexes = narrow
       ? [cursor, cursor + 1, cursor - 1]
       : [spreadCursor, spreadCursor + 1, spreadCursor + 2, spreadCursor + 3, spreadCursor - 1, spreadCursor - 2];
@@ -436,7 +439,7 @@ export function BookStage({
   return (
     <div
       ref={rootRef}
-      className={`desk-screen desk-${doc.desk ?? "yeso"} ${hot ? "is-hot" : ""} ${present ? "is-present" : ""} ${lens ? "is-lens" : ""} ${scale > 1 ? "is-zoomed" : ""}`}
+      className={`desk-screen desk-${doc.desk ?? "yeso"} ${hot ? "is-hot" : ""} ${present ? "is-present" : ""} ${near ? "is-near" : ""} ${lens ? "is-lens" : ""} ${scale > 1 ? "is-zoomed" : ""}`}
     >
       <div className={`quiet-bar top-bar ${present ? "present-bar" : ""}`}>
         {previewing ? (
@@ -511,25 +514,26 @@ export function BookStage({
               <span className="open-hint">Abrir cuaderno</span>
             </button>
           ) : (
-            <div className="single-book">
-              <div className="single-under">
-                <SlotSheet index={singleUnder} doc={doc} assets={assets} single />
+            <div className={`single-book ${flip ? "is-turning" : ""}`}>
+              <div className="single-hold">
+                <SlotSheet index={flip ? flip.from : cursor} doc={doc} assets={assets} single />
               </div>
               {flip ? (
-                <div className={`leaf leaf-single leaf-${flip.dir}`}>
-                  <div className="face face-front">
-                    <SlotSheet index={flip.from} doc={doc} assets={assets} single />
-                  </div>
-                  <div className="face face-back">
+                <>
+                  <div className="single-under">
                     <SlotSheet index={singleUnder} doc={doc} assets={assets} single />
                   </div>
-                  <div className="leaf-shade" />
-                </div>
-              ) : (
-                <div className="single-static">
-                  <SlotSheet index={cursor} doc={doc} assets={assets} single />
-                </div>
-              )}
+                  <div className={`leaf leaf-single leaf-${flip.dir}`}>
+                    <div className="face face-front">
+                      <SlotSheet index={flip.from} doc={doc} assets={assets} single />
+                    </div>
+                    <div className="face face-back">
+                      <SlotSheet index={singleUnder} doc={doc} assets={assets} single />
+                    </div>
+                    <div className="leaf-shade" />
+                  </div>
+                </>
+              ) : null}
             </div>
           )
         ) : (
@@ -620,6 +624,12 @@ export function BookStage({
 
       {present ? (
         <div className={`lens-dock ${lens ? "is-on" : ""}`}>
+          <button type="button" className={`quiet-btn ${near ? "" : "is-on"}`} onClick={() => setNear(false)}>
+            Atrás
+          </button>
+          <button type="button" className={`quiet-btn ${near ? "is-on" : ""}`} onClick={() => setNear(true)}>
+            Cerca
+          </button>
           <button type="button" className={`quiet-btn ${lens ? "is-on" : ""}`} onClick={toggleLens}>
             <Search size={15} strokeWidth={1.75} />
             Lupa
