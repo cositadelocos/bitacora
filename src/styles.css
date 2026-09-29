@@ -285,12 +285,13 @@
 }
 
 .phase-open .wing-left .curl {
-  transform: rotateY(4deg);
+  /* 1px de solape para que el escritorio no se asome en la costura. */
+  transform: translateX(1px) rotateY(4deg);
   transform-origin: right center;
 }
 
 .phase-open .wing-right .curl {
-  transform: rotateY(-4deg);
+  transform: translateX(-1px) rotateY(-4deg);
   transform-origin: left center;
 }
 
@@ -300,16 +301,20 @@
   justify-self: center;
   top: 0;
   bottom: 0;
-  width: 22px;
+  width: 46px;
   margin-left: 0;
+  /* Solo sombra. Sin franja clara: esa raya era el artefacto del centro. */
   background: linear-gradient(
     90deg,
-    rgba(48, 34, 20, 0.22),
-    rgba(48, 34, 20, 0.05) 36%,
-    rgba(255, 250, 240, 0.55) 50%,
-    rgba(48, 34, 20, 0.06) 64%,
-    rgba(48, 34, 20, 0.24)
+    transparent 0%,
+    rgba(36, 24, 14, 0.04) 18%,
+    rgba(36, 24, 14, 0.12) 40%,
+    rgba(28, 18, 10, 0.22) 50%,
+    rgba(36, 24, 14, 0.12) 60%,
+    rgba(36, 24, 14, 0.04) 82%,
+    transparent 100%
   );
+  mix-blend-mode: multiply;
   z-index: 5;
   pointer-events: none;
 }
