@@ -59,5 +59,18 @@ export function ElementBody({
   if (el.type === "tape") {
     return <div className={`tape tape-${el.tape ?? "masking"}`} />;
   }
+  if (el.type === "shape") {
+    const filled = el.fill !== false;
+    return (
+      <div
+        className={`shape shape-${el.shape ?? "rect"}`}
+        style={{
+          color: inkVar(el.color),
+          background: filled ? inkVar(el.color) : "transparent",
+          border: filled ? "0 solid transparent" : "0.4cqw solid currentColor",
+        }}
+      />
+    );
+  }
   return <DecoGraphic kind={el.deco ?? "arrow"} color={el.color} />;
 }

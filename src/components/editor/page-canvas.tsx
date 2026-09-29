@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { LogElement, LogPage, Cover, BackCover } from "@/lib/logbook/model";
+import type { LogElement, LogPage, Cover, BackCover, Guide } from "@/lib/logbook/model";
 import { elementStyle, fontStack, inkVar, RATIO } from "@/lib/logbook/model";
 import { Sheet } from "@/components/book/sheet";
 import { ElementBody } from "@/components/book/element-body";
@@ -32,6 +32,9 @@ export function PageCanvas({
   onDropFiles,
   dropHot,
   onDragState,
+  selectedGuide,
+  onSelectGuide,
+  onMoveGuide,
 }: {
   page: LogPage;
   assets: Record<string, string>;
@@ -43,9 +46,13 @@ export function PageCanvas({
   onDropFiles: (files: File[]) => void;
   dropHot: boolean;
   onDragState: (hot: boolean) => void;
+  selectedGuide: string | null;
+  onSelectGuide: (id: string | null) => void;
+  onMoveGuide: (id: string, at: number) => void;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  const guideDrag = useRef<{ id: string; axis: Guide["axis"] } | null>(null);
   const recording = useRef(false);
 
   function units(event: { clientX: number; clientY: number }) {
@@ -64,6 +71,13 @@ export function PageCanvas({
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
+      const guiding = guideDrag.current;
+      if (guiding && pageRef.current) {
+        const point = units(event);
+        begin();
+        onMoveGuide(guiding.id, clamp(guiding.axis === "v" ? point.x : point.y, 2, guiding.axis === "v" ? 98 : 150));
+        return;
+      }
       const current = drag.current;
       if (!current || !pageRef.current) return;
       const point = units(event);
@@ -102,10 +116,12 @@ export function PageCanvas({
       if (el.type === "image" && el.naturalW && el.naturalH) {
         h = (w * el.naturalH) / el.naturalW;
       }
+      if (el.type === "shape" && (el.shape === "circle" || el.shape === "square")) h = w;
       onPatch(el.id, { w, h });
     };
     const up = () => {
       drag.current = null;
+      guideDrag.current = null;
       recording.current = false;
     };
     window.addEventListener("pointermove", move);
@@ -114,7 +130,7 @@ export function PageCanvas({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-  }, [page.elements, onPatch, onPatchGroup, onGestureStart]);
+  }, [page.elements, onPatch, onPatchGroup, onMoveGuide, onGestureStart]);
 
   function startMove(event: ReactPointerEvent, el: LogElement) {
     event.stopPropagation();
@@ -141,8 +157,9 @@ export function PageCanvas({
       ref={pageRef}
       className={`canvas-page ${dropHot ? "is-drop" : ""}`}
       onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest(".placed")) return;
+        if ((event.target as HTMLElement).closest(".placed, .guide")) return;
         onSelect(null);
+        onSelectGuide(null);
       }}
       onDragEnter={(event) => {
         if (![...event.dataTransfer.types].includes("Files")) return;
@@ -245,6 +262,21 @@ export function PageCanvas({
             </div>
           );
         })}
+        {(page.guides ?? []).map((guide) => (
+          <button
+            key={guide.id}
+            type="button"
+            className={`guide guide-${guide.axis} ${guide.id === selectedGuide ? "is-on" : ""}`}
+            style={guide.axis === "v" ? { left: `${guide.at}%` } : { top: `${guide.at / RATIO}%` }}
+            aria-label={guide.axis === "v" ? "Guía vertical" : "Guía horizontal"}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect(null);
+              onSelectGuide(guide.id);
+              guideDrag.current = { id: guide.id, axis: guide.axis };
+            }}
+          />
+        ))}
       </Sheet>
       {dropHot ? <p className="drop-label">Soltar en la página</p> : null}
     </div>

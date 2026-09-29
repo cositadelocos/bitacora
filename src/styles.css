@@ -631,6 +631,26 @@
   animation: cover-shut 0.95s cubic-bezier(0.15, 0.75, 0.2, 1) forwards;
 }
 
+.closed-book.is-rear .closed-shell {
+  transform: rotateX(10deg) rotateY(16deg);
+}
+
+.closed-book.is-sealing .closed-shell {
+  animation: shell-seal 0.95s cubic-bezier(0.16, 0.8, 0.2, 1) forwards;
+}
+
+.closed-book.is-sealing .closed-cover {
+  animation: cover-seal 0.95s cubic-bezier(0.15, 0.75, 0.2, 1) forwards;
+}
+
+.closed-book.is-unsealing .closed-shell {
+  animation: shell-unseal 0.9s cubic-bezier(0.16, 0.8, 0.2, 1) forwards;
+}
+
+.closed-book.is-unsealing .closed-cover {
+  animation: cover-unseal 0.9s cubic-bezier(0.15, 0.75, 0.2, 1) forwards;
+}
+
 @keyframes shell-shut {
   from { transform: rotateX(0) rotateY(0); }
   to { transform: rotateX(10deg) rotateY(-18deg); }
@@ -639,6 +659,26 @@
 @keyframes cover-shut {
   from { transform: rotateY(-162deg); }
   to { transform: rotateY(0deg); }
+}
+
+@keyframes shell-seal {
+  from { transform: rotateX(0) rotateY(0); }
+  to { transform: rotateX(10deg) rotateY(16deg); }
+}
+
+@keyframes cover-seal {
+  from { transform: rotateY(-162deg); }
+  to { transform: rotateY(0deg); }
+}
+
+@keyframes shell-unseal {
+  from { transform: rotateX(10deg) rotateY(16deg); }
+  to { transform: rotateX(0) rotateY(0); }
+}
+
+@keyframes cover-unseal {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-162deg); }
 }
 
 .closed-spine,
@@ -724,6 +764,50 @@
   white-space: pre-wrap;
   line-height: 1.25;
   overflow: hidden;
+}
+
+.shape {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.shape-circle {
+  border-radius: 50%;
+}
+
+.guide {
+  position: absolute;
+  z-index: 8;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.guide-v {
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  margin-left: -8px;
+  cursor: ew-resize;
+  background: linear-gradient(90deg, transparent 7px, var(--color-olive) 7px, var(--color-olive) 8px, transparent 8px);
+}
+
+.guide-h {
+  left: 0;
+  right: 0;
+  height: 16px;
+  margin-top: -8px;
+  cursor: ns-resize;
+  background: linear-gradient(180deg, transparent 7px, var(--color-olive) 7px, var(--color-olive) 8px, transparent 8px);
+}
+
+.guide.is-on {
+  background: linear-gradient(90deg, transparent 7px, var(--color-brick) 7px, var(--color-brick) 8px, transparent 8px);
+}
+
+.guide-h.is-on {
+  background: linear-gradient(180deg, transparent 7px, var(--color-brick) 7px, var(--color-brick) 8px, transparent 8px);
 }
 
 .font-editorial { font-family: var(--font-serif); font-weight: 500; line-height: 1.35; }

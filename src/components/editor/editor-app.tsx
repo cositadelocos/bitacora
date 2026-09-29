@@ -62,6 +62,7 @@ export function EditorApp() {
   const [future, setFuture] = useState<LogbookDoc[]>([]);
   const [pageId, setPageId] = useState<string>("cover");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedGuide, setSelectedGuide] = useState<string | null>(null);
   const clip = useRef<LogElement[]>([]);
   const [clipCount, setClipCount] = useState(0);
   const [status, setStatus] = useState("Cargando cuaderno…");
@@ -212,6 +213,20 @@ export function EditorApp() {
         else undo();
       }
       if (typing) return;
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedGuide && pageId !== "cover" && pageId !== "back") {
+        event.preventDefault();
+        const drop = selectedGuide;
+        commit(
+          (current) =>
+            patchPage(current, pageId, (item) => ({
+              ...item,
+              guides: (item.guides ?? []).filter((guide) => guide.id !== drop),
+            })),
+          true,
+        );
+        setSelectedGuide(null);
+        return;
+      }
       if ((event.key === "Delete" || event.key === "Backspace") && selectedIds.length && pageId !== "cover" && pageId !== "back") {
         event.preventDefault();
         deleteSelected();
@@ -510,6 +525,7 @@ export function EditorApp() {
             }, true);
             setPageId(created.id);
             setSelectedIds([]);
+            setSelectedGuide(null);
           }}
         >
           + Nueva página
@@ -601,7 +617,10 @@ export function EditorApp() {
             page={page}
             assets={assets}
             selectedIds={selectedIds}
-            onSelect={selectElement}
+            onSelect={(id, toggle) => {
+              selectElement(id, toggle);
+              if (id) setSelectedGuide(null);
+            }}
             dropHot={dropHot}
             onDragState={setDropHot}
             onGestureStart={() => {
@@ -630,6 +649,18 @@ export function EditorApp() {
               );
             }}
             onDropFiles={(files) => void ingest(files, "page")}
+            selectedGuide={selectedGuide}
+            onSelectGuide={setSelectedGuide}
+            onMoveGuide={(id, at) =>
+              commit(
+                (current) =>
+                  patchPage(current, pageId, (item) => ({
+                    ...item,
+                    guides: (item.guides ?? []).map((guide) => (guide.id === id ? { ...guide, at } : guide)),
+                  })),
+                false,
+              )
+            }
           />
         ) : null}
       </main>
@@ -722,6 +753,125 @@ export function EditorApp() {
                   </button>
                 ))}
               </div>
+              <p className="tool-label">Forma</p>
+              <div className="tool-grid">
+                {(
+                  [
+                    ["circle", "Círculo", 28, 28],
+                    ["square", "Cuadro", 28, 28],
+                    ["rect", "Rectángulo", 48, 26],
+                  ] as const
+                ).map(([shape, label, w, h]) => (
+                  <button
+                    key={shape}
+                    type="button"
+                    className="quiet-btn"
+                    onClick={() =>
+                      addElement((z) => ({
+                        id: cryptoId(),
+                        type: "shape",
+                        shape,
+                        fill: true,
+                        x: 50,
+                        y: 70,
+                        w,
+                        h,
+                        rotation: 0,
+                        opacity: 1,
+                        z,
+                        color: "ink",
+                      }))
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="tool-label">Guías</p>
+              <div className="tool-grid">
+                <button
+                  type="button"
+                  className="quiet-btn"
+                  onClick={() => {
+                    const id = cryptoId();
+                    const at = 12 + ((page?.guides ?? []).filter((guide) => guide.axis === "v").length % 4) * 8;
+                    commit(
+                      (current) =>
+                        patchPage(current, pageId, (item) => ({
+                          ...item,
+                          guides: [...(item.guides ?? []), { id, axis: "v", at }],
+                        })),
+                      true,
+                    );
+                    setSelectedGuide(id);
+                    setSelectedIds([]);
+                  }}
+                >
+                  Vertical
+                </button>
+                <button
+                  type="button"
+                  className="quiet-btn"
+                  onClick={() => {
+                    const id = cryptoId();
+                    const at = 18 + ((page?.guides ?? []).filter((guide) => guide.axis === "h").length % 4) * 14;
+                    commit(
+                      (current) =>
+                        patchPage(current, pageId, (item) => ({
+                          ...item,
+                          guides: [...(item.guides ?? []), { id, axis: "h", at }],
+                        })),
+                      true,
+                    );
+                    setSelectedGuide(id);
+                    setSelectedIds([]);
+                  }}
+                >
+                  Horizontal
+                </button>
+              </div>
+              <button
+                type="button"
+                className="quiet-btn wide"
+                disabled={!(page?.guides ?? []).length}
+                onClick={() => {
+                  const source = page?.guides ?? [];
+                  commit(
+                    (current) => ({
+                      ...current,
+                      pages: current.pages.map((item) =>
+                        item.id === pageId
+                          ? item
+                          : { ...item, guides: source.map((guide) => ({ ...guide, id: cryptoId() })) },
+                      ),
+                    }),
+                    true,
+                  );
+                  setStatus("Guías copiadas en las demás hojas");
+                }}
+              >
+                Igualar guías en todas
+              </button>
+              {selectedGuide ? (
+                <button
+                  type="button"
+                  className="quiet-btn danger wide"
+                  onClick={() => {
+                    commit(
+                      (current) =>
+                        patchPage(current, pageId, (item) => ({
+                          ...item,
+                          guides: (item.guides ?? []).filter((guide) => guide.id !== selectedGuide),
+                        })),
+                      true,
+                    );
+                    setSelectedGuide(null);
+                  }}
+                >
+                  Quitar guía
+                </button>
+              ) : null}
+              <p className="dialog-copy">Las guías solo se ven al editar. No salen en el cuaderno publicado.</p>
               <p className="tool-label">Dibujo</p>
               <div className="deco-grid">
                 {DECOS.map((deco) => (
@@ -795,6 +945,7 @@ export function EditorApp() {
                           id: cryptoId(),
                           look: el.look ? { ...el.look } : undefined,
                         })),
+                        guides: (page.guides ?? []).map((guide) => ({ ...guide, id: cryptoId() })),
                       };
                       commit((current) => {
                         const index = current.pages.findIndex((item) => item.id === page.id);
@@ -1170,7 +1321,7 @@ function ElementFields({
   return (
     <div className="element-fields">
       <p className="tool-label">
-        {el.type === "image" ? "Imagen" : el.type === "text" ? "Texto" : el.type === "tape" ? "Cinta" : "Dibujo"}
+        {el.type === "image" ? "Imagen" : el.type === "text" ? "Texto" : el.type === "tape" ? "Cinta" : el.type === "shape" ? "Forma" : "Dibujo"}
       </p>
       {el.type === "text" ? (
         <>
@@ -1222,7 +1373,17 @@ function ElementFields({
           </label>
         </>
       ) : null}
-      {el.type === "text" || el.type === "deco" ? (
+      {el.type === "shape" ? (
+        <div className="tool-grid">
+          <button type="button" className={`quiet-btn ${el.fill !== false ? "is-on" : ""}`} onClick={() => onChange({ fill: true }, true)}>
+            Relleno
+          </button>
+          <button type="button" className={`quiet-btn ${el.fill === false ? "is-on" : ""}`} onClick={() => onChange({ fill: false }, true)}>
+            Solo borde
+          </button>
+        </div>
+      ) : null}
+      {el.type === "text" || el.type === "deco" || el.type === "shape" ? (
         <div className="swatches">
           {INKS.map((ink) => (
             <button

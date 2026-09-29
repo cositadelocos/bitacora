@@ -158,6 +158,13 @@ export const DECOS = [
 ] as const;
 export type DecoKind = (typeof DECOS)[number];
 
+export type ShapeKind = "circle" | "square" | "rect";
+
+export type Guide = {
+  id: string;
+  axis: "v" | "h";
+  at: number;
+};
 export const TONES = ["ivory", "warm", "cool"] as const;
 export type Tone = (typeof TONES)[number];
 
@@ -171,7 +178,7 @@ export type ImageLook = {
 
 export type LogElement = {
   id: string;
-  type: "image" | "text" | "tape" | "deco";
+  type: "image" | "text" | "tape" | "deco" | "shape";
   x: number;
   y: number;
   w: number;
@@ -191,12 +198,15 @@ export type LogElement = {
   align?: "left" | "center" | "right";
   tape?: TapeKind;
   deco?: DecoKind;
+  shape?: ShapeKind;
+  fill?: boolean;
 };
 
 export type LogPage = {
   id: string;
   tone: Tone;
   elements: LogElement[];
+  guides: Guide[];
 };
 
 export type Cover = {
@@ -314,7 +324,7 @@ function parseElement(v: unknown): LogElement | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   const type = o.type;
-  if (type !== "image" && type !== "text" && type !== "tape" && type !== "deco") return null;
+  if (type !== "image" && type !== "text" && type !== "tape" && type !== "deco" && type !== "shape") return null;
   const id = str(o.id, 80);
   if (!id) return null;
   const el: LogElement = {
@@ -344,8 +354,12 @@ function parseElement(v: unknown): LogElement | null {
     el.align = o.align === "center" || o.align === "right" ? o.align : "left";
   } else if (type === "tape") {
     el.tape = TAPE_SET.has(String(o.tape)) ? (o.tape as TapeKind) : "masking";
-  } else {
+  } else if (type === "deco") {
     el.deco = DECO_SET.has(String(o.deco)) ? (o.deco as DecoKind) : "arrow";
+    el.color = INK_SET.has(String(o.color)) ? (o.color as InkName) : "ink";
+  } else if (type === "shape") {
+    el.shape = o.shape === "circle" || o.shape === "square" ? o.shape : "rect";
+    el.fill = o.fill !== false;
     el.color = INK_SET.has(String(o.color)) ? (o.color as InkName) : "ink";
   }
   return el;
@@ -408,6 +422,7 @@ export function parseDoc(input: unknown): LogbookDoc {
       id,
       tone: TONE_SET.has(String(p.tone)) ? (p.tone as Tone) : "ivory",
       elements,
+      guides: parseGuides(p.guides),
     });
   }
   if (!pages.length) pages.push(blankPage("page-blank"));
@@ -421,8 +436,25 @@ export function parseDoc(input: unknown): LogbookDoc {
   };
 }
 
+function parseGuides(v: unknown): Guide[] {
+  if (!Array.isArray(v)) return [];
+  const guides: Guide[] = [];
+  for (const item of v.slice(0, 16)) {
+    if (!item || typeof item !== "object") continue;
+    const g = item as Record<string, unknown>;
+    const id = str(g.id, 80);
+    if (!id) continue;
+    guides.push({
+      id,
+      axis: g.axis === "h" ? "h" : "v",
+      at: num(g.at, 20, 0, 160),
+    });
+  }
+  return guides;
+}
+
 export function blankPage(id = cryptoId()): LogPage {
-  return { id, tone: "ivory", elements: [] };
+  return { id, tone: "ivory", elements: [], guides: [] };
 }
 
 export function cryptoId() {
@@ -519,6 +551,7 @@ export function seedDoc(): LogbookDoc {
       {
         id: "page-proceso",
         tone: "ivory",
+        guides: [],
         elements: [
           textEl({
             id: "t-proceso",
@@ -568,6 +601,7 @@ export function seedDoc(): LogbookDoc {
       {
         id: "page-margen",
         tone: "warm",
+        guides: [],
         elements: [
           decoEl({
             id: "d-leaf",
@@ -606,6 +640,7 @@ export function seedDoc(): LogbookDoc {
       {
         id: "page-obs",
         tone: "ivory",
+        guides: [],
         elements: [
           textEl({
             id: "t-obs",
@@ -644,6 +679,7 @@ export function seedDoc(): LogbookDoc {
       {
         id: "page-vacia",
         tone: "cool",
+        guides: [],
         elements: [
           textEl({
             id: "t-vacia",
@@ -662,6 +698,7 @@ export function seedDoc(): LogbookDoc {
       {
         id: "page-paleta",
         tone: "ivory",
+        guides: [],
         elements: [
           textEl({
             id: "t-paleta",
@@ -698,6 +735,7 @@ export function seedDoc(): LogbookDoc {
       {
         id: "page-sigue",
         tone: "warm",
+        guides: [],
         elements: [
           decoEl({
             id: "d-loop",
@@ -735,9 +773,9 @@ export function evenCursor(cursor: number, total: number) {
 
 /** Slots in the viewer, including the back cover (and a blank endpaper on spreads so it sits on the right). */
 export function viewCount(pageCount: number, single: boolean) {
-  if (single) return pageCount + 1;
-  const withBack = pageCount + 1;
-  return withBack % 2 === 0 ? withBack : withBack + 1;
+  if (single) return Math.max(1, pageCount);
+  if (pageCount <= 0) return 2;
+  return pageCount % 2 === 0 ? pageCount : pageCount + 1;
 }
 
 export function backIndex(pageCount: number, single: boolean) {

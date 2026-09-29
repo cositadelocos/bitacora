@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize2, Search, Share2, X } from "lucide-react";
 import type { LogbookDoc, LogPage } from "@/lib/logbook/model";
-import { backIndex, elementStyle, evenCursor, maxCursor, pad2, pageAssetIds, viewCount } from "@/lib/logbook/model";
+import { elementStyle, evenCursor, maxCursor, pad2, pageAssetIds, viewCount } from "@/lib/logbook/model";
 import type { AssetMode } from "@/lib/logbook/assets";
 import { loadAssets } from "@/lib/logbook/assets";
 import { Sheet } from "@/components/book/sheet";
@@ -10,7 +10,7 @@ import { ElementBody } from "@/components/book/element-body";
 import { BackFace, CoverFace } from "@/components/book/cover-face";
 import { ShareDialog } from "@/components/chrome/share-dialog";
 
-type Phase = "shut" | "opening" | "open" | "closing";
+type Phase = "shut" | "opening" | "open" | "closing" | "sealing" | "rear" | "unsealing";
 type Flip = { dir: "next" | "prev"; from: number } | null;
 
 function ease(t: number) {
@@ -91,11 +91,7 @@ function SlotSheet({
   assets: Record<string, string>;
   single: boolean;
 }) {
-  if (index === backIndex(doc.pages.length, single)) {
-    const backUrl = doc.back?.assetId ? assets[doc.back.assetId] : undefined;
-    return <BackFace cover={doc.cover} back={doc.back} imageUrl={backUrl} />;
-  }
-  const page = doc.pages[index];
+  const page = index >= 0 ? doc.pages[index] : undefined;
   if (!page) return <Sheet tone="ivory" seed={`blank-${index}`} quiet />;
   return <PageSheet page={page} assets={assets} />;
 }
@@ -120,7 +116,6 @@ export function BookStage({
   const reduced = useReduced();
   const pageCount = doc.pages.length;
   const total = viewCount(pageCount, narrow);
-  const rear = backIndex(pageCount, narrow);
   const sceneRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
@@ -214,6 +209,18 @@ export function BookStage({
   }, [phase, animateVar]);
 
   useEffect(() => {
+    if (phase !== "sealing" && phase !== "unsealing") return;
+    if (reduced) {
+      setPhase(phase === "sealing" ? "rear" : "open");
+      return;
+    }
+    const id = window.setTimeout(() => {
+      setPhase(phase === "sealing" ? "rear" : "open");
+    }, 980);
+    return () => window.clearTimeout(id);
+  }, [phase, reduced]);
+
+  useEffect(() => {
     if (!flip) return;
     busy.current = true;
     const cancel = animateVar("--p", 0, 1, narrow ? 740 : 820, () => {
@@ -259,11 +266,17 @@ export function BookStage({
         }
         return;
       }
+      if (phase === "rear") {
+        if (dir === "prev") setPhase("unsealing");
+        return;
+      }
       if (phase !== "open" || busy.current || flip) return;
       const from = narrow ? cursor : evenCursor(cursor, total);
       const limit = maxCursor(total, narrow);
       if (dir === "next" && from >= limit) {
         setAutoplay(false);
+        setFlip(null);
+        setPhase("sealing");
         return;
       }
       if (dir === "prev" && from <= 0) return;
@@ -394,8 +407,7 @@ export function BookStage({
 
   const label = (() => {
     if (phase === "shut" || phase === "opening") return "portada";
-    if (narrow && cursor === rear) return "contraportada";
-    if (!narrow && (leftIndex === rear || rightIndex === rear)) return "contraportada";
+    if (phase === "rear" || phase === "sealing" || phase === "unsealing") return "contraportada";
     if (narrow) {
       const n = Math.min(pageCount, cursor + 1);
       return `${pad2(n)}  /  ${pad2(pageCount)}`;
@@ -433,8 +445,10 @@ export function BookStage({
     }
   }
 
-  const atStart = (narrow ? cursor : spreadCursor) <= 0;
-  const atEnd = (narrow ? cursor : spreadCursor) >= maxCursor(total, narrow);
+  const atStart = phase !== "rear" && (narrow ? cursor : spreadCursor) <= 0;
+  const atEnd = phase === "rear";
+  const showRear = phase === "sealing" || phase === "rear" || phase === "unsealing";
+  const backUrl = doc.back?.assetId ? assets[doc.back.assetId] : undefined;
 
   return (
     <div
@@ -494,7 +508,23 @@ export function BookStage({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {narrow ? (
+        {showRear ? (
+          <div className={`closed-book ${phase === "sealing" ? "is-sealing" : phase === "unsealing" ? "is-unsealing" : "is-rear"}`}>
+            <span className="closed-shadow" aria-hidden="true" />
+            <span className="closed-shell">
+              <span className="closed-spine" />
+              <span className="closed-pages" />
+              <span className="closed-cover">
+                <BackFace cover={doc.cover} back={doc.back} imageUrl={backUrl} />
+              </span>
+            </span>
+            {phase === "rear" ? (
+              <button type="button" className="open-hint desk-hint" onClick={() => go("prev")}>
+                Última página
+              </button>
+            ) : null}
+          </div>
+        ) : narrow ? (
           phase !== "open" ? (
             <button
               type="button"
@@ -586,7 +616,7 @@ export function BookStage({
           </div>
         )}
 
-        {phase === "open" && !(present && lens) ? (
+        {(phase === "open" || phase === "rear") && !(present && lens) ? (
           <>
             <button
               type="button"
